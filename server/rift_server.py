@@ -46,7 +46,7 @@ log = logging.getLogger("rift.server")
 
 # ─── Configuration ────────────────────────────────────────────────────────────
 REGION       = "ap-southeast-2"
-PROFILE      = "rift-admin"
+PROFILE      = os.getenv("RIFT_AWS_PROFILE") or os.getenv("AWS_PROFILE") or "rift-admin"
 LEGACY_DEVICE_ID = "rift-win-worker-01"
 BUCKET       = "rift-storage-903859732456-ap-southeast-2"
 QUEUE_URL    = "https://sqs.ap-southeast-2.amazonaws.com/903859732456/rift-chunks-queue"

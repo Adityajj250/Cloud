@@ -14,6 +14,11 @@ agent/device.json
 # Credentials and local TLS material
 agent/certs/*.private.key
 agent/certs/device.private.key
+agent/certs/*.pem.crt
+agent/certs/*.public.key
+agent/certs/certificateArn.txt
+agent/certs/devices/
+config/local.ps1
 server/key.pem
 server/cert.pem
 

@@ -16,6 +16,7 @@ class AgentConfig:
     device_id: str = field(default_factory=lambda: os.getenv("RIFT_DEVICE_ID") or _DEVICE_ID)
     device_name: str = field(default_factory=lambda: os.getenv("RIFT_DEVICE_NAME") or _DEVICE_NAME)
     server_url: str = field(default_factory=lambda: (os.getenv("RIFT_SERVER_URL") or "http://127.0.0.1:8765").rstrip("/"))
+    aws_profile: str = field(default_factory=lambda: os.getenv("RIFT_AWS_PROFILE") or os.getenv("AWS_PROFILE") or "rift-admin")
     
     # AWS IoT Core Settings
     iot_endpoint: str = os.getenv("RIFT_IOT_ENDPOINT", "a30f3sdnp94spe-ats.iot.ap-southeast-2.amazonaws.com")

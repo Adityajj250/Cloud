@@ -138,17 +138,17 @@ class RiftAgent:
 
         # AWS clients (uses default credential chain — run `aws login --profile rift-admin` first)
         try:
-            session = boto3.Session(profile_name="rift-admin", region_name=self.config.aws_region)
+            session = boto3.Session(profile_name=self.config.aws_profile, region_name=self.config.aws_region)
             self.dynamo    = session.resource("dynamodb", region_name=self.config.aws_region)
             self.sqs_cli   = session.client("sqs", region_name=self.config.aws_region)
             self.s3_cli    = session.client("s3", region_name=self.config.aws_region)
             self.devices_tbl = self.dynamo.Table("rift-devices")
             self.jobs_tbl    = self.dynamo.Table("rift-jobs")
             self.chunks_tbl  = self.dynamo.Table("rift-chunks")
-            logger.info("[INIT] ✓ AWS boto3 session ready (rift-admin profile)")
+            logger.info("[INIT] ✓ AWS boto3 session ready (profile=%s)", self.config.aws_profile)
         except Exception as e:
             logger.error(f"[INIT] ✗ AWS session failed: {e}")
-            logger.error("[INIT]   → Run: aws login --region ap-southeast-2 --profile rift-admin")
+            logger.error("[INIT]   → Sign in with: aws login --region ap-southeast-2 --profile %s", self.config.aws_profile)
             self.dynamo = self.sqs_cli = self.s3_cli = None
             self.devices_tbl = self.jobs_tbl = self.chunks_tbl = None
 

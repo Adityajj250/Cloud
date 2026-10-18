@@ -44,7 +44,7 @@ Phone browser / Android wrapper ── HTTPS + WebSocket ── Cloudflare Quick
 
 - Windows for the worker agent and remote desktop control.
 - Python and pip. Install the project's Python dependencies from `agent/requirements.txt`.
-- AWS CLI authenticated under the `rift-admin` profile, plus the AWS IoT certificates and AWS resources configured for this project. The server currently hardcodes the profile and resource names in `server/rift_server.py`; the agent's defaults are in `agent/config.py`.
+- AWS CLI authenticated to the project's AWS account, plus a per-device AWS IoT certificate and the AWS resources configured for this project. The default profile name is `rift-admin`; set `RIFT_AWS_PROFILE` (or `AWS_PROFILE`) to use another local profile name. Resource names and the selected Region are still configured for this project.
 - `cloudflared` installed and available on `PATH` for public cross-network testing.
 - Ollama and the `qwen2.5:3b` model for the LLM tab only.
 - Android Studio only if building/running the native wrapper.
@@ -79,7 +79,7 @@ $env:RIFT_DEVICE_NAME = 'Living Room PC'
 python .\agent\rift_agent.py
 ```
 
-Set a different `RIFT_DEVICE_NAME` for each computer (for example, `Office Laptop` or `Gaming PC`). That computer needs the Python dependencies, AWS credentials/profile, and an AWS IoT certificate permitted to publish and subscribe to its device topics. The Quick Tunnel URL changes when restarted, so remote agents must be restarted with the new URL; a stable named tunnel or hosted hub is the next deployment step.
+Set a different `RIFT_DEVICE_NAME` for each computer (for example, `Office Laptop` or `Gaming PC`). That computer needs the Python dependencies, an AWS CLI profile for a team member invited to your AWS project, and its own AWS IoT certificate permitted to publish and subscribe only to that device's topics. Invite the friend as a team member in AWS Settings, then on their computer sign in to the same project using `aws login --profile rift-admin --region ap-southeast-2` (or use a different profile name and set `RIFT_AWS_PROFILE`). Provision a separate certificate for the friend's device in the project's selected Region; do not copy another device's private key. The Quick Tunnel URL changes when restarted, so remote agents must be restarted with the new URL; a stable named tunnel or hosted hub is the next deployment step.
 
 The agent prints a six-digit Screen Share PIN. Keep the agent running in the logged-in Windows desktop session. To use the LLM tab, start Ollama separately and make sure `qwen2.5:3b` is available:
 
@@ -95,7 +95,7 @@ Then:
 4. To browse files or upload from the phone, pair to the target computer in **Screen Share**, then open **Files**. Place files to share in `%USERPROFILE%\RIFT Shared`; phone uploads arrive under `%USERPROFILE%\RIFT Inbox`. Risky file types go under `%USERPROFILE%\RIFT Inbox\Quarantine`. The agent creates these folders on first start. Set `RIFT_FILES_ROOT` or `RIFT_INBOX_DIR` before starting the agent to change the locations. If the agent is on another computer/network, set `RIFT_SERVER_URL` to the current tunnel URL before launching it.
 5. To stop, press **Stop** in the phone interface, then Ctrl+C in the tunnel terminal and stop the agent with Ctrl+C.
 
-The first AWS login may need to be renewed. If required, run:
+The AWS CLI login may need to be renewed. If required, run:
 
 ```powershell
 aws login --region ap-southeast-2 --profile rift-admin
