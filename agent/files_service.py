@@ -15,6 +15,7 @@ from typing import Any
 
 
 CHUNK_LIMIT = 512 * 1024
+READ_LIMIT = 1024 * 1024
 MAX_UPLOAD_SIZE = 4 * 1024 * 1024 * 1024
 QUARANTINED_EXTENSIONS = {
     ".exe", ".msi", ".bat", ".cmd", ".ps1", ".vbs", ".js", ".lnk",
@@ -140,7 +141,7 @@ class FilesService:
                 "mime": mimetypes.guess_type(path.name)[0] or "application/octet-stream"}
 
     def read_file(self, file_id: str, offset: int, length: int) -> bytes:
-        if not 0 <= offset <= (2**63 - 1) or not 1 <= length <= CHUNK_LIMIT:
+        if not 0 <= offset <= (2**63 - 1) or not 1 <= length <= READ_LIMIT:
             raise ValueError("Invalid file range")
         scope, relative = self._paths.get(file_id, ("", ""))
         if not relative:

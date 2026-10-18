@@ -129,7 +129,8 @@ pending_file_ops: dict[str, asyncio.Future] = {}
 file_access_tokens: dict[tuple[str, str], str] = {}
 pending_llm_jobs: dict[str, str] = {}
 APP_LOOP = None
-MAX_FILE_RANGE_BYTES = 2 * 1024 * 1024
+MAX_FILE_RANGE_BYTES = 1024 * 1024
+MAX_AGENT_READ_BYTES = 1024 * 1024
 
 # ─── WebSocket broadcast helper ───────────────────────────────────────────────
 async def broadcast(msg: dict):
@@ -232,9 +233,14 @@ def require_files_access(request, device_id: str):
     return device, client_id
 
 
-def make_file_signature(device_id: str, client_id: str, file_id: str, mode: str) -> str:
+def make_file_signature(device_id: str, client_id: str, file_id: str, mode: str,
+                        metadata: dict[str, Any] | None = None) -> str:
     payload = {"deviceId": device_id, "clientId": client_id, "fileId": file_id,
                "mode": mode, "expires": int(time.time()) + 600}
+    if metadata:
+        payload.update({"size": int(metadata.get("size", 0)),
+                        "mime": str(metadata.get("mime", "application/octet-stream")),
+                        "name": str(metadata.get("name", "file"))[:240]})
     token = base64.urlsafe_b64encode(json.dumps(payload, separators=(",", ":")).encode()).decode().rstrip("=")
     signature = hmac.new(HMAC_SECRET.encode(), token.encode(), hashlib.sha256).hexdigest()
     return token + "." + signature
@@ -279,7 +285,7 @@ async def handle_files_link(request):
     if mode not in ("inline", "attachment"):
         raise web.HTTPBadRequest(text="Mode must be inline or attachment")
     stat = await request_agent_file_op(device.device_id, {"type": "files_stat_request", "fileId": file_id})
-    signature = make_file_signature(device_id, client_id, file_id, mode)
+    signature = make_file_signature(device_id, client_id, file_id, mode, stat)
     return web.json_response({"url": f"/api/files/{quote(device_id, safe='')}/content/{quote(file_id, safe='')}?sig={signature}",
         "name": stat.get("name", "file"), "size": int(stat.get("size", 0)),
         "mime": stat.get("mime", "application/octet-stream"), "expiresIn": 600, "mode": mode})
@@ -288,8 +294,11 @@ async def handle_files_link(request):
 async def handle_files_content(request):
     device_id, file_id = request.match_info["deviceId"], request.match_info["fileId"]
     signed = verify_file_signature(request.query.get("sig", ""), device_id, file_id)
-    stat = await request_agent_file_op(device_id, {"type": "files_stat_request", "fileId": file_id})
-    size, offset, end = int(stat["size"]), 0, int(stat["size"]) - 1
+    # The signed link already carries the metadata obtained when it was created.
+    # Avoid a second agent round trip before the browser can receive video bytes.
+    metadata = signed if "size" in signed and "mime" in signed else await request_agent_file_op(
+        device_id, {"type": "files_stat_request", "fileId": file_id})
+    size, offset, end = int(metadata["size"]), 0, int(metadata["size"]) - 1
     status = 200
     range_header = request.headers.get("Range", "")
     if range_header:
@@ -312,12 +321,12 @@ async def handle_files_content(request):
     if status == 206:
         end = min(end, offset + MAX_FILE_RANGE_BYTES - 1)
     length = max(0, end - offset + 1)
-    mime = str(stat.get("mime", "application/octet-stream"))
+    mime = str(metadata.get("mime", "application/octet-stream"))
     # Never render active HTML/SVG content in the hub's origin.
     unsafe_inline = mime in ("text/html", "image/svg+xml", "application/xhtml+xml")
     if unsafe_inline:
         mime = "application/octet-stream"
-    filename = quote(str(stat.get("name", "file")), safe="")
+    filename = quote(str(metadata.get("name", "file")), safe="")
     disposition = "attachment" if signed["mode"] == "attachment" or unsafe_inline else "inline"
     headers = {"Accept-Ranges": "bytes", "Content-Type": mime,
                "Content-Disposition": f"{disposition}; filename*=UTF-8''{filename}",
@@ -329,7 +338,7 @@ async def handle_files_content(request):
     await response.prepare(request)
     remaining = length
     while remaining:
-        amount = min(512 * 1024, remaining)
+        amount = min(MAX_AGENT_READ_BYTES, remaining)
         result = await request_agent_file_op(device_id, {"type": "files_read_request", "fileId": file_id,
             "offset": offset, "length": amount}, timeout=45)
         payload = base64.b64decode(result.get("data", ""), validate=True)
