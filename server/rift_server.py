@@ -129,6 +129,7 @@ pending_file_ops: dict[str, asyncio.Future] = {}
 file_access_tokens: dict[tuple[str, str], str] = {}
 pending_llm_jobs: dict[str, str] = {}
 APP_LOOP = None
+MAX_FILE_RANGE_BYTES = 2 * 1024 * 1024
 
 # ─── WebSocket broadcast helper ───────────────────────────────────────────────
 async def broadcast(msg: dict):
@@ -305,6 +306,11 @@ async def handle_files_content(request):
             raise web.HTTPRequestRangeNotSatisfiable(headers={"Content-Range": f"bytes */{size}"})
         status = 206
     end = min(end, size - 1)
+    # Media clients commonly request an open-ended range (bytes=0-). Keep
+    # each response bounded so playback can start and the browser can request
+    # subsequent bytes only as the viewer watches or seeks.
+    if status == 206:
+        end = min(end, offset + MAX_FILE_RANGE_BYTES - 1)
     length = max(0, end - offset + 1)
     mime = str(stat.get("mime", "application/octet-stream"))
     # Never render active HTML/SVG content in the hub's origin.
