@@ -28,7 +28,10 @@ class FilesService:
 
     def __init__(self) -> None:
         app_data = Path(os.getenv("LOCALAPPDATA") or Path.home()) / "RIFT"
-        self.shared_root = Path(os.getenv("RIFT_FILES_ROOT") or (Path.home() / "RIFT Shared")).expanduser().resolve()
+        configured_root = os.getenv("RIFT_FILES_ROOT")
+        default_root = str(Path.home() / "RIFT Shared")
+        shared_root = os.path.expandvars(os.path.expanduser(configured_root)) if configured_root else default_root
+        self.shared_root = Path(shared_root).resolve()
         self.shared_root.mkdir(parents=True, exist_ok=True)
         app_data.mkdir(parents=True, exist_ok=True)
         # Keep legacy RIFT_INBOX_DIR uploads working as a migration source, but
@@ -105,7 +108,7 @@ class FilesService:
                     continue
                 if item.is_symlink():
                     continue
-                stat = item.stat()
+                item_stat = item.stat()
             except (OSError, RuntimeError):
                 continue
             child_relative = (Path(relative) / item.name).as_posix()
@@ -115,10 +118,11 @@ class FilesService:
                 entry = {"pathId": token, "kind": "directory"}
             else:
                 self._paths[token] = (scope, child_relative)
-                entry = {"fileId": token, "kind": "file", "size": stat.st_size,
+                entry = {"fileId": token, "kind": "file", "size": item_stat.st_size,
                          "mime": mimetypes.guess_type(item.name)[0] or "application/octet-stream"}
-            entries.append({"name": item.name, "modified": int(stat.st_mtime), **entry})
+            entries.append({"name": item.name, "modified": int(item_stat.st_mtime), **entry})
         return {"scope": scope, "rootName": "RIFT Shared" if scope == "shared" else "RIFT Inbox",
+                "rootPath": str(self._root(scope)),
                 "entries": entries, "parentId": None if not relative else path_id,
                 "nextOffset": offset + len(page) if has_more else None}
 
@@ -219,5 +223,6 @@ class FilesService:
         meta.unlink(missing_ok=True)
         self._uploads.pop(upload_id, None)
         return {"name": destination.name, "size": received, "sha256": digest.hexdigest(),
-                "quarantined": quarantined, "path": "RIFT Shared\\Quarantine" if quarantined else "RIFT Shared"}
+                "quarantined": quarantined, "path": "RIFT Shared\\Quarantine" if quarantined else "RIFT Shared",
+                "fullPath": str(destination), "rootPath": str(self.shared_root)}
 

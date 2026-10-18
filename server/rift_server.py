@@ -264,7 +264,7 @@ async def handle_files_list(request):
         raise web.HTTPBadRequest(text="Invalid folder page offset") from error
     result = await request_agent_file_op(device.device_id, {"type": "files_list_request", "pathId": path_id, "offset": offset})
     try:
-        return web.json_response({key: result[key] for key in ("scope", "rootName", "entries", "parentId", "nextOffset") if key in result})
+        return web.json_response({key: result[key] for key in ("scope", "rootName", "rootPath", "entries", "parentId", "nextOffset") if key in result})
     except Exception:
         log.exception("[FILES] Could not format list response for device %s", device.device_id)
         return web.json_response({"error": "The computer returned an invalid folder listing. Check the agent log and restart the agent."}, status=502)

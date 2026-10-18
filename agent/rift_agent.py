@@ -130,7 +130,7 @@ class RiftAgent:
         try:
             self.files_service = FilesService()
             logger.info("[FILES] Shared folder: %s", self.files_service.shared_root)
-            logger.info("[FILES] Upload inbox: %s", self.files_service.inbox_root)
+            logger.info("[FILES] Uploads and downloads use the shared folder: %s", self.files_service.shared_root)
         except Exception as files_error:
             self.files_service = None
             logger.exception("[FILES] File service could not start: %s", files_error)

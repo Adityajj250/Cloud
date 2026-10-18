@@ -110,7 +110,7 @@ Then:
 1. Open the printed HTTPS URL in Chrome on the phone.
 2. Open the same URL on the laptop with `?view=laptop` for the laptop console (for example, `https://example.trycloudflare.com/?view=laptop`). Open it without the query on a phone for the mobile interface.
 3. For screen share, open **Screen Share** on the phone, select an available computer, and tap **Pick up**. Only one phone can control a computer at a time; tap **Drop** when finished.
-4. To browse, upload, or download files, pick up the target computer, then open **Files**. The phone and computer use `%USERPROFILE%\RIFT Shared` as their common folder. Risky file types go under `%USERPROFILE%\RIFT Shared\Quarantine`. The agent creates the shared folder on first start. Set `RIFT_FILES_ROOT` before starting the agent to change its location. For a computer on another network, use the hosted URL shown under Hosted test hub, or the current tunnel URL for local testing.
+4. To browse, upload, or download files, pick up the target computer, then open **Files**. Each computer creates its own common folder at `<that Windows user's home folder>\RIFT Shared` by default (usually `%USERPROFILE%\RIFT Shared`), independent of where the project was cloned. The phone shows the selected computer's actual folder and saved-file path. Risky file types go under that folder's `Quarantine` subfolder. Set `RIFT_FILES_ROOT` before starting an agent to use a different local folder on that computer. For a computer on another network, use the hosted URL shown under Hosted test hub, or the current tunnel URL for local testing.
 5. To stop, press **Stop** in the phone interface, then Ctrl+C in the tunnel terminal and stop the agent with Ctrl+C.
 
 The AWS CLI login may need to be renewed. If required, run:

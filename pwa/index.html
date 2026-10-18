@@ -165,6 +165,7 @@
     <label class="mt-3 block text-[11px] text-slate-400" for="files-device-select">Target computer</label>
     <select id="files-device-select" onchange="selectDevice(this.value); updateFilesDeviceState()" class="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm"><option value="">No computers connected</option></select>
     <div id="files-status" class="mt-3 rounded-lg border border-slate-800 bg-slate-950 p-3 text-[11px] text-slate-300">Pick up the selected computer in Screen Share before browsing or transferring files.</div>
+    <div id="files-location" class="break-all text-[10px] text-slate-500">The selected computer will report its shared-folder location.</div>
   </div>
   <div class="rounded-xl border border-slate-800 bg-slate-900 p-4 space-y-3">
     <div class="flex items-center justify-between"><h3 class="text-sm font-semibold">Browse computer</h3><button onclick="loadFiles()" class="rounded-lg bg-slate-800 px-3 py-2 text-[11px] text-sky-300">Refresh</button></div>
@@ -851,7 +852,7 @@ function setFilesStatus(message, error=false) {
   const el = document.getElementById('files-status');
   if(!el) return;
   el.textContent = message;
-  el.className = `mt-3 rounded-lg border p-3 text-[11px] ${error?'border-red-500/30 bg-red-500/5 text-red-300':'border-slate-800 bg-slate-950 text-slate-300'}`;
+  el.className = `mt-3 break-all rounded-lg border p-3 text-[11px] ${error?'border-red-500/30 bg-red-500/5 text-red-300':'border-slate-800 bg-slate-950 text-slate-300'}`;
 }
 async function loadFiles(scope=filesScope, pathId=null, append=false, offset=0) {
   if(!append) filesNextOffset = null;
@@ -884,6 +885,8 @@ async function loadFiles(scope=filesScope, pathId=null, append=false, offset=0) 
     filesLoadedDeviceId = device.deviceId;
     filesEntries = append ? filesEntries.concat(data.entries||[]) : (data.entries||[]);
     filesNextOffset = data.nextOffset ?? null;
+    const location = document.getElementById('files-location');
+    if(location) location.textContent = data.rootPath ? `Shared folder on ${device.name||device.deviceId}: ${data.rootPath}` : 'Shared folder location was not reported by this computer.';
     const crumbs = document.getElementById('files-breadcrumb');
     if(crumbs) crumbs.innerHTML = `<button onclick="filesPathStack=[];loadFiles(filesScope,filesRootPathId)">${escapeHtml(data.rootName||scopeName)}</button>` + filesPathStack.map((item,index)=>`<span>›</span><button onclick="filesPathStack=filesPathStack.slice(0,${index+1});loadFiles(filesScope,'${escapeJs(item.pathId)}')">${escapeHtml(item.name)}</button>`).join('');
     setFilesStatus(`${device.name||device.deviceId} · ${scopeName} · ${filesEntries.length} item${filesEntries.length===1?'':'s'}`);
@@ -988,7 +991,7 @@ async function uploadOneFile(device,file) {
     state.textContent=finishData.quarantined?'Quarantined for laptop approval':'Complete';
     state.className='text-[10px] text-emerald-300';
     sizeLabel.textContent=`${fileSize(finishData.size)} · SHA-256 ${String(finishData.sha256||'').slice(0,16)}…`;
-    setFilesStatus(finishData.quarantined?`${file.name} was placed in RIFT Shared\\Quarantine; review it on the computer.`:`${file.name} saved to ${finishData.path||'RIFT Shared'}.`);
+    setFilesStatus(finishData.quarantined?`${file.name} was placed in Quarantine; review it at ${finishData.fullPath||finishData.path||'RIFT Shared\\Quarantine'}.`:`${file.name} saved to ${finishData.fullPath||finishData.path||'RIFT Shared'}.`);
     if(filesScope==='shared') await loadFiles('shared',filesCurrentPathId);
   } catch(error) {
     state.textContent='Interrupted · reselect to resume'; state.className='text-[10px] text-amber-300';
