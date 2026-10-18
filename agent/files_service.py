@@ -24,16 +24,18 @@ RESERVED_NAMES = {"CON", "PRN", "AUX", "NUL", *(f"COM{i}" for i in range(1, 10))
 
 
 class FilesService:
-    """Expose only two configured roots: a common read-only folder and an inbox."""
+    """Expose a common shared folder for browsing, downloads, and phone uploads."""
 
     def __init__(self) -> None:
         app_data = Path(os.getenv("LOCALAPPDATA") or Path.home()) / "RIFT"
         self.shared_root = Path(os.getenv("RIFT_FILES_ROOT") or (Path.home() / "RIFT Shared")).expanduser().resolve()
-        self.inbox_root = Path(os.getenv("RIFT_INBOX_DIR") or (Path.home() / "RIFT Inbox")).expanduser().resolve()
         self.shared_root.mkdir(parents=True, exist_ok=True)
-        self.inbox_root.mkdir(parents=True, exist_ok=True)
         app_data.mkdir(parents=True, exist_ok=True)
-        self.quarantine_root = (self.inbox_root / "Quarantine").resolve()
+        # Keep legacy RIFT_INBOX_DIR uploads working as a migration source, but
+        # new uploads land in the same folder the phone browses and downloads.
+        self.inbox_root = Path(os.getenv("RIFT_INBOX_DIR") or self.shared_root).expanduser().resolve()
+        self.inbox_root.mkdir(parents=True, exist_ok=True)
+        self.quarantine_root = (self.shared_root / "Quarantine").resolve()
         self.quarantine_root.mkdir(parents=True, exist_ok=True)
         self._paths: dict[str, tuple[str, str]] = {"shared-root": ("shared", ""), "inbox-root": ("inbox", "")}
         self._uploads: dict[str, dict[str, Any]] = {}
@@ -153,8 +155,8 @@ class FilesService:
         if size < 0 or size > MAX_UPLOAD_SIZE:
             raise ValueError("File exceeds the 4 GB upload limit")
         safe_name = self._safe_name(name)
-        part = self.inbox_root / f".rift-{upload_id}.part"
-        meta = self.inbox_root / f".rift-{upload_id}.json"
+        part = self.shared_root / f".rift-{upload_id}.part"
+        meta = self.shared_root / f".rift-{upload_id}.json"
         if meta.exists():
             import json
             data = json.loads(meta.read_text(encoding="utf-8"))
@@ -177,7 +179,7 @@ class FilesService:
         if not payload or len(payload) > CHUNK_LIMIT:
             raise ValueError("Upload chunk must be between 1 byte and 512 KB")
         info = self._uploads[upload_id]
-        part = self.inbox_root / f".rift-{upload_id}.part"
+        part = self.shared_root / f".rift-{upload_id}.part"
         current = part.stat().st_size if part.exists() else 0
         if offset != current or current + len(payload) > info["size"]:
             raise ValueError(f"Unexpected upload offset; server has {current} bytes")
@@ -190,8 +192,8 @@ class FilesService:
 
     def finish_upload(self, upload_id: str) -> dict[str, Any]:
         info = self._uploads.get(upload_id)
-        meta = self.inbox_root / f".rift-{upload_id}.json"
-        part = self.inbox_root / f".rift-{upload_id}.part"
+        meta = self.shared_root / f".rift-{upload_id}.json"
+        part = self.shared_root / f".rift-{upload_id}.part"
         if not info and meta.exists():
             import json
             info = json.loads(meta.read_text(encoding="utf-8"))
@@ -202,7 +204,7 @@ class FilesService:
             raise ValueError(f"Upload incomplete: received {received} of {info['size']} bytes")
         extension = Path(info["name"]).suffix.lower()
         quarantined = extension in QUARANTINED_EXTENSIONS
-        destination_root = self.quarantine_root if quarantined else self.inbox_root
+        destination_root = self.quarantine_root if quarantined else self.shared_root
         destination = destination_root / info["name"]
         stem, suffix = destination.stem, destination.suffix
         index = 1
@@ -217,5 +219,5 @@ class FilesService:
         meta.unlink(missing_ok=True)
         self._uploads.pop(upload_id, None)
         return {"name": destination.name, "size": received, "sha256": digest.hexdigest(),
-                "quarantined": quarantined, "path": "Quarantine" if quarantined else "RIFT Inbox"}
+                "quarantined": quarantined, "path": "RIFT Shared\\Quarantine" if quarantined else "RIFT Shared"}
 

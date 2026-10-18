@@ -19,6 +19,7 @@ agent/certs/*.public.key
 agent/certs/certificateArn.txt
 agent/certs/devices/
 config/local.ps1
+config/.secrets/
 server/key.pem
 server/cert.pem
 

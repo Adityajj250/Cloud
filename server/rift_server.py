@@ -19,6 +19,7 @@ import hmac
 import hashlib
 import secrets
 import re
+import signal
 from urllib.parse import quote
 from typing import Any
 
@@ -45,22 +46,45 @@ logging.basicConfig(
 log = logging.getLogger("rift.server")
 
 # ─── Configuration ────────────────────────────────────────────────────────────
-REGION       = "ap-southeast-2"
-PROFILE      = os.getenv("RIFT_AWS_PROFILE") or os.getenv("AWS_PROFILE") or "rift-admin"
-LEGACY_DEVICE_ID = "rift-win-worker-01"
-BUCKET       = "rift-storage-903859732456-ap-southeast-2"
-QUEUE_URL    = "https://sqs.ap-southeast-2.amazonaws.com/903859732456/rift-chunks-queue"
-IOT_ENDPOINT = "a30f3sdnp94spe-ats.iot.ap-southeast-2.amazonaws.com"
-OLLAMA_MODEL = "qwen2.5:3b"
-HMAC_SECRET  = "rift-super-secret-hmac-key-2026"
+ENVIRONMENT  = os.getenv("RIFT_ENV", "development").lower()
+PRODUCTION   = ENVIRONMENT == "production"
+REGION       = os.getenv("RIFT_AWS_REGION") or os.getenv("AWS_DEFAULT_REGION") or "ap-southeast-2"
+PROFILE      = os.getenv("RIFT_AWS_PROFILE") or os.getenv("AWS_PROFILE") or (None if PRODUCTION else "rift-admin")
+LEGACY_DEVICE_ID = os.getenv("RIFT_DEVICE_ID", "rift-win-worker-01")
+BUCKET       = os.getenv("RIFT_S3_BUCKET", "rift-storage-903859732456-ap-southeast-2")
+QUEUE_URL    = os.getenv("RIFT_SQS_QUEUE_URL", "https://sqs.ap-southeast-2.amazonaws.com/903859732456/rift-chunks-queue")
+IOT_ENDPOINT = os.getenv("RIFT_IOT_ENDPOINT", "a30f3sdnp94spe-ats.iot.ap-southeast-2.amazonaws.com")
+OLLAMA_MODEL = os.getenv("RIFT_LLM_MODEL", "qwen2.5:3b")
+HMAC_SECRET  = os.getenv("RIFT_HMAC_SECRET") or ("" if PRODUCTION else "rift-super-secret-hmac-key-2026")
 SERVER_PORT  = int(os.getenv("RIFT_SERVER_PORT", "8765"))
+HUB_CLIENT_ID = os.getenv("RIFT_HUB_IOT_CLIENT_ID", f"{LEGACY_DEVICE_ID}-server-listener")
+HUB_IOT_CERT = os.getenv("RIFT_HUB_IOT_CERT", "")
+HUB_IOT_PRIVATE_KEY = os.getenv("RIFT_HUB_IOT_PRIVATE_KEY", "")
+HUB_IOT_ROOT_CA = os.getenv("RIFT_HUB_IOT_ROOT_CA", "")
+DEVICES_TABLE = os.getenv("RIFT_DEVICES_TABLE", "rift-devices")
+JOBS_TABLE = os.getenv("RIFT_JOBS_TABLE", "rift-jobs")
+CHUNKS_TABLE = os.getenv("RIFT_CHUNKS_TABLE", "rift-chunks")
+ALLOWED_ORIGINS = {value.strip().rstrip("/") for value in os.getenv("RIFT_ALLOWED_ORIGINS", "").split(",") if value.strip()}
+SHUTTING_DOWN = False
+SHUTDOWN_EVENT = threading.Event()
+_iot_conn = None
 PWA_DIR      = os.path.join(os.path.dirname(os.path.dirname(__file__)), "pwa")
+
+if PRODUCTION:
+    if len(HMAC_SECRET) < 32:
+        raise RuntimeError("RIFT_HMAC_SECRET must be set to a random value of at least 32 characters in production")
+    if "REPLACE_" in HMAC_SECRET:
+        raise RuntimeError("Replace the example HMAC secret with a randomly generated value before starting production")
+    for label, path in (("RIFT_HUB_IOT_CERT", HUB_IOT_CERT), ("RIFT_HUB_IOT_PRIVATE_KEY", HUB_IOT_PRIVATE_KEY),
+                        ("RIFT_HUB_IOT_ROOT_CA", HUB_IOT_ROOT_CA)):
+        if not path or not os.path.isfile(path):
+            raise RuntimeError(f"{label} must point to a readable hub IoT certificate file in production")
 
 # Add agent path so we can import vision detector
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(__file__)), "agent"))
 
 # ─── AWS Session ──────────────────────────────────────────────────────────────
-log.info(f"[INIT] Connecting to AWS (profile={PROFILE} region={REGION})…")
+log.info("[INIT] Connecting to AWS (credential source=%s region=%s)…", PROFILE or "default chain / instance role", REGION)
 try:
     aws_session = boto3.Session(profile_name=PROFILE, region_name=REGION)
     dynamo      = aws_session.resource("dynamodb", region_name=REGION)
@@ -103,6 +127,7 @@ pending_pings: dict[str, dict[str, Any]] = {}
 pending_pings_lock = threading.Lock()
 pending_file_ops: dict[str, asyncio.Future] = {}
 file_access_tokens: dict[tuple[str, str], str] = {}
+pending_llm_jobs: dict[str, str] = {}
 APP_LOOP = None
 
 # ─── WebSocket broadcast helper ───────────────────────────────────────────────
@@ -199,11 +224,10 @@ def require_files_access(request, device_id: str):
     token = request.headers.get("X-RIFT-FILES-TOKEN", "")
     if not device or device.websocket.closed or "files" not in device.capabilities:
         raise web.HTTPServiceUnavailable(text="That computer is offline or does not provide Files.")
-    # Development pairing gate: the phone must first pair to this exact computer
-    # with its Screen Share PIN. This reuses the existing controller grant.
+    # Only the phone currently holding this computer's control lease may use files.
     expected_token = file_access_tokens.get((device_id, client_id), "")
     if not client_id or device.controller_client_id != client_id or not token or not hmac.compare_digest(token, expected_token):
-        raise web.HTTPForbidden(text="Connect to this computer in Screen Share with its PIN before using Files.")
+        raise web.HTTPForbidden(text="Claim this computer in Screen Share before using its shared files.")
     return device, client_id
 
 
@@ -239,7 +263,11 @@ async def handle_files_list(request):
     except ValueError as error:
         raise web.HTTPBadRequest(text="Invalid folder page offset") from error
     result = await request_agent_file_op(device.device_id, {"type": "files_list_request", "pathId": path_id, "offset": offset})
-    return web.json_response({key: result[key] for key in ("scope", "rootName", "entries", "parentId", "nextOffset") if key in result})
+    try:
+        return web.json_response({key: result[key] for key in ("scope", "rootName", "entries", "parentId", "nextOffset") if key in result})
+    except Exception:
+        log.exception("[FILES] Could not format list response for device %s", device.device_id)
+        return web.json_response({"error": "The computer returned an invalid folder listing. Check the agent log and restart the agent."}, status=502)
 
 
 async def handle_files_link(request):
@@ -348,7 +376,7 @@ async def handle_files_upload_finish(request):
         "uploadId": request.match_info["uploadId"][:80]})
     await broadcast_to_role("laptop", {"type": "files_transfer_complete", "deviceId": device.device_id,
         "clientId": client_id, "name": result.get("name", "file"), "size": result.get("size", 0),
-        "quarantined": bool(result.get("quarantined")), "path": result.get("path", "RIFT Inbox")})
+        "quarantined": bool(result.get("quarantined")), "path": result.get("path", "RIFT Shared")})
     return web.json_response(result)
 
 
@@ -421,8 +449,8 @@ async def handle_submit_job(request):
 
     import uuid, decimal
     job_id     = f"job-{uuid.uuid4().hex[:8]}"
-    jobs_tbl   = dynamo.Table("rift-jobs")
-    chunks_tbl = dynamo.Table("rift-chunks")
+    jobs_tbl   = dynamo.Table(JOBS_TABLE)
+    chunks_tbl = dynamo.Table(CHUNKS_TABLE)
 
     log.info(f"[JOB] ▶ Submitting {job_type} job {job_id} ({chunk_count} chunks)")
     sync_broadcast({"type": "log", "msg": f"→ Submitting {job_id} ({job_type}, {chunk_count} chunks)…"})
@@ -473,7 +501,7 @@ async def handle_submit_job(request):
 # ─── Job List ─────────────────────────────────────────────────────────────────
 async def handle_list_jobs(request):
     try:
-        tbl    = dynamo.Table("rift-jobs")
+        tbl    = dynamo.Table(JOBS_TABLE)
         result = tbl.scan(Limit=20)
         items  = result.get("Items", [])
         import decimal
@@ -496,7 +524,7 @@ async def handle_list_jobs(request):
 async def handle_delete_job(request):
     job_id = request.match_info["jobId"]
     try:
-        dynamo.Table("rift-jobs").delete_item(Key={"jobId": job_id})
+        dynamo.Table(JOBS_TABLE).delete_item(Key={"jobId": job_id})
         log.info(f"[JOB] ✓ Deleted job {job_id}")
         sync_broadcast({"type": "job_deleted", "jobId": job_id})
         return web.json_response({"status": "deleted", "jobId": job_id})
@@ -536,37 +564,39 @@ async def handle_camera_frame(request):
 
 # ─── LLM generation ──────────────────────────────────────────────────────────
 async def handle_llm_stream(request):
-    """
-    Runs Ollama and returns its completed response. Quick Tunnels do not
-    support Server-Sent Events, so this endpoint is buffered.
-    """
-    data   = await request.json()
-    prompt = data.get("prompt", "").strip()
+    """Dispatch an LLM prompt to the selected connected computer's Ollama."""
+    try:
+        data = await request.json()
+    except Exception:
+        return web.json_response({"error": "Expected a JSON prompt request."}, status=400)
+    prompt = str(data.get("prompt", "")).strip()
     if not prompt:
         return web.json_response({"error": "Empty prompt"}, status=400)
-
-    log.info(f"[LLM] ▶ Prompt: {prompt[:80]}…")
-    sync_broadcast({"type": "log", "msg": f"[LLM] qwen2.5:3b running on laptop: {prompt[:60]}…"})
-
+    if len(prompt) > 12000:
+        return web.json_response({"error": "Prompt is too long (maximum 12,000 characters)."}, status=413)
+    requested_device = str(data.get("deviceId", ""))[:100]
+    device_id = resolve_device_id(requested_device)
+    device = device_registry.get(device_id)
+    if not device or device.websocket.closed:
+        return web.json_response({"error": "Select an online computer to run the LLM."}, status=409)
+    if "llm" not in device.capabilities:
+        return web.json_response({
+            "error": f"{device.name} is not advertising LLM. Start Ollama on that computer, install {OLLAMA_MODEL}, then restart its R.I.F.T. agent."
+        }, status=503)
+    job_id = str(data.get("jobId", ""))[:80]
+    if not re.fullmatch(r"[A-Za-z0-9_-]{12,80}", job_id):
+        job_id = f"llm-{secrets.token_hex(16)}"
+    payload = make_signed_payload("start_llm", job_id, {"jobId": job_id, "prompt": prompt})
     try:
-        ollama_url = os.getenv("RIFT_OLLAMA_URL", "http://127.0.0.1:11434").rstrip("/")
-        timeout = aiohttp.ClientTimeout(total=240)
-        async with aiohttp.ClientSession(timeout=timeout) as session:
-            async with session.post(f"{ollama_url}/api/generate", json={
-                "model": OLLAMA_MODEL, "prompt": prompt, "stream": False
-            }) as upstream:
-                if upstream.status != 200:
-                    detail = (await upstream.text())[:500]
-                    return web.json_response({"error": f"Ollama returned HTTP {upstream.status}: {detail}"}, status=502)
-                result = await upstream.json()
-        answer = result.get("response", "").strip()
-        log.info(f"[LLM] ✓ Ollama response complete ({len(answer)} chars)")
-        return web.json_response({"response": answer, "done": True})
-    except aiohttp.ClientConnectorError:
-        return web.json_response({"error": "Cannot connect to Ollama at 127.0.0.1:11434. Start Ollama and make sure qwen2.5:3b is installed."}, status=503)
+        pending_llm_jobs[job_id] = device.device_id
+        topic = f"rift/{device.device_id}/cmd"
+        iot_data.publish(topic=topic, qos=1, payload=json.dumps(payload))
+        log.info("[LLM] Dispatched job %s to %s", job_id, device.device_id)
+        return web.json_response({"jobId": job_id, "deviceId": device.device_id, "status": "accepted"}, status=202)
     except Exception as e:
-        log.error(f"[LLM] ✗ Error: {e}")
-        return web.json_response({"error": str(e)}, status=500)
+        pending_llm_jobs.pop(job_id, None)
+        log.exception("[LLM] Could not dispatch job %s", job_id)
+        return web.json_response({"error": "Could not dispatch the prompt to the selected computer."}, status=502)
 
 
 # ─── Viewer Link ──────────────────────────────────────────────────────────────
@@ -616,7 +646,7 @@ async def handle_laptop_status(request):
     if live:
         return web.json_response({"online": not live.websocket.closed, **live.public_view()})
     try:
-        tbl  = dynamo.Table("rift-devices")
+        tbl  = dynamo.Table(DEVICES_TABLE)
         item = tbl.get_item(Key={"deviceId": device_id}).get("Item")
         if item:
             import decimal
@@ -650,7 +680,7 @@ async def handle_list_devices(request):
 
 # ─── WebSocket Handler ────────────────────────────────────────────────────────
 async def handle_ws(request):
-    ws = web.WebSocketResponse(heartbeat=15, max_msg_size=5 * 1024 * 1024)
+    ws = web.WebSocketResponse(heartbeat=15, max_msg_size=5 * 1024 * 1024, protocols=("rift.v1",))
     await ws.prepare(request)
     ws_clients.add(ws)
     client_ip = request.remote
@@ -723,16 +753,22 @@ async def handle_ws(request):
                     elif mtype == "control_request" and ws_sessions.get(ws, {}).get("role") == "mobile":
                         device_id = resolve_device_id(data.get("deviceId"))
                         device = device_registry.get(device_id)
+                        client_id = ws_sessions[ws]["clientId"]
                         if not device or device.websocket.closed:
                             await ws.send_str(json.dumps({"type": "control_status", "deviceId": device_id,
                                 "ok": False, "message": "That computer is not connected to the hub."}))
-                        elif device.controller_client_id and device.controller_client_id != ws_sessions[ws]["clientId"]:
+                        elif (device.controller_client_id and device.controller_client_id != client_id) or (
+                                device.pending_controller_client_id and device.pending_controller_client_id != client_id):
                             await ws.send_str(json.dumps({"type": "control_status", "deviceId": device_id,
-                                "ok": False, "message": "Another phone currently controls this computer."}))
+                                "ok": False, "message": "Another phone has claimed this computer. Ask them to drop it first."}))
+                        elif device.controller_client_id == client_id:
+                            file_token = file_access_tokens.get((device_id, client_id)) or secrets.token_urlsafe(32)
+                            file_access_tokens[(device_id, client_id)] = file_token
+                            await send_control_status(client_id, True, "Computer claimed. You can control it until you drop it.", device_id, file_token)
                         else:
-                            device.pending_controller_client_id = ws_sessions[ws]["clientId"]
+                            device.pending_controller_client_id = client_id
                             await device.websocket.send_str(json.dumps({"type": "control_request", "deviceId": device_id,
-                                "clientId": ws_sessions[ws]["clientId"], "pin": str(data.get("pin", ""))[:20]}))
+                                "clientId": client_id}))
                     elif mtype == "control_status" and ws_sessions.get(ws, {}).get("role") == "agent":
                         device_id = device_registry.device_id_for(ws)
                         device = device_registry.get(device_id)
@@ -780,7 +816,7 @@ async def handle_ws(request):
                     elif mtype == "control_stop" and ws_sessions.get(ws, {}).get("role") == "mobile":
                         client_id = ws_sessions[ws]["clientId"]
                         device = device_registry.get(resolve_device_id(data.get("deviceId")))
-                        if device and device.controller_client_id == client_id:
+                        if device and client_id in (device.controller_client_id, device.pending_controller_client_id):
                             device.controller_client_id = None
                             device.pending_controller_client_id = None
                             file_access_tokens.pop((device.device_id, client_id), None)
@@ -816,7 +852,7 @@ async def handle_ws(request):
             last_mobile_socket = not entry or len(entry["sockets"]) <= 1
             if last_mobile_socket:
                 for device in device_registry.online():
-                    if device.controller_client_id == session["clientId"]:
+                    if session["clientId"] in (device.controller_client_id, device.pending_controller_client_id):
                         device.controller_client_id = None
                         device.pending_controller_client_id = None
                         file_access_tokens.pop((device.device_id, session["clientId"]), None)
@@ -868,6 +904,9 @@ def _start_iot_subscriber():
     Runs in a background thread.
     """
     try:
+        if PRODUCTION and not (HUB_IOT_CERT and HUB_IOT_PRIVATE_KEY):
+            log.error("[IOT-SUB] Production requires a hub-specific IoT certificate and private key; not using a computer agent certificate")
+            return
         # Add agent certs path
         agent_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "agent")
         sys.path.insert(0, agent_dir)
@@ -875,9 +914,9 @@ def _start_iot_subscriber():
         from awscrt import mqtt
         from awsiot import mqtt_connection_builder
 
-        cert_path = os.path.join(agent_dir, "certs", "device.pem.crt")
-        key_path  = os.path.join(agent_dir, "certs", "device.private.key")
-        ca_path   = os.path.join(agent_dir, "certs", "AmazonRootCA1.pem")
+        cert_path = HUB_IOT_CERT or os.path.join(agent_dir, "certs", "device.pem.crt")
+        key_path  = HUB_IOT_PRIVATE_KEY or os.path.join(agent_dir, "certs", "device.private.key")
+        ca_path   = HUB_IOT_ROOT_CA or os.path.join(agent_dir, "certs", "AmazonRootCA1.pem")
 
         if not all(os.path.exists(p) for p in [cert_path, key_path, ca_path]):
             log.warning("[IOT-SUB] ⚠ Agent certs not found — IoT subscriber disabled")
@@ -888,7 +927,7 @@ def _start_iot_subscriber():
             cert_filepath=cert_path,
             pri_key_filepath=key_path,
             ca_filepath=ca_path,
-            client_id=f"{LEGACY_DEVICE_ID}-server-listener",
+            client_id=HUB_CLIENT_ID,
             clean_session=True,
             port=443,
             http_proxy_options=None
@@ -923,8 +962,14 @@ def _start_iot_subscriber():
                     })
                     sync_broadcast({"type": "agent_pong", "deviceId": device_id,
                                     "targetClientId": ping.get("clientId"), "data": data})
-                elif "token" in data:
-                    sync_broadcast({"type": "llm_token", "deviceId": device_id, "jobId": data.get("jobId"), "token": data.get("token"), "done": data.get("done", False)})
+                elif data.get("jobId") and ("token" in data or "error" in data or data.get("done")):
+                    job_id = str(data.get("jobId"))
+                    device_id = data.get("deviceId") or pending_llm_jobs.get(job_id) or device_id
+                    sync_broadcast({"type": "llm_token", "deviceId": device_id, "jobId": job_id,
+                                    "token": data.get("token", ""), "error": data.get("error"),
+                                    "done": data.get("done", False)})
+                    if data.get("done"):
+                        pending_llm_jobs.pop(job_id, None)
                 else:
                     sync_broadcast({"type": "agent_result", "deviceId": device_id, "data": data})
             except Exception as e:
@@ -937,8 +982,12 @@ def _start_iot_subscriber():
         log.info(f"[IOT-SUB] ✓ Subscribed & confirmed to {result_topic}")
         log.info(f"[IOT-SUB] ✓ Subscribed & confirmed to {tokens_topic}")
 
-        while True:
-            time.sleep(3600)
+        while not SHUTTING_DOWN and not SHUTDOWN_EVENT.wait(timeout=1):
+            pass
+        try:
+            conn.disconnect().result(timeout=5)
+        except Exception:
+            log.exception("[IOT-SUB] Error while disconnecting")
 
     except Exception as e:
         log.warning(f"[IOT-SUB] ⚠ IoT subscriber not started: {e}")
@@ -953,10 +1002,10 @@ async def job_polling_loop():
     while True:
         await asyncio.sleep(5)
         try:
-            tbl    = dynamo.Table("rift-jobs")
+            tbl    = dynamo.Table(JOBS_TABLE)
             result = tbl.scan(FilterExpression="attribute_exists(jobId)", Limit=10)
             items  = result.get("Items", [])
-            chunks_tbl = dynamo.Table("rift-chunks")
+            chunks_tbl = dynamo.Table(CHUNKS_TABLE)
             for job in items:
                 if job.get("status") != "PROCESSING" or int(job.get("chunksDone", 0)) < int(job.get("chunkCount", 0)):
                     continue
@@ -1013,23 +1062,60 @@ async def job_polling_loop():
 
 
 # ─── CORS Middleware ──────────────────────────────────────────────────────────
+def _origin_allowed(request, origin: str) -> bool:
+    origin = origin.rstrip("/")
+    if origin in ALLOWED_ORIGINS:
+        return True
+    if ALLOWED_ORIGINS:
+        return False
+    forwarded_host = request.headers.get("X-Forwarded-Host", request.host)
+    forwarded_proto = request.headers.get("X-Forwarded-Proto", request.scheme)
+    return origin == f"{forwarded_proto}://{forwarded_host}"
+
+
+async def handle_health(request):
+    return web.json_response({"ok": True, "service": "rift-hub", "environment": ENVIRONMENT,
+                             "authRequired": False})
+
+
 @web.middleware
 async def cors_middleware(request, handler):
     if request.method == "OPTIONS":
+        origin = request.headers.get("Origin", "")
+        if PRODUCTION and origin and not _origin_allowed(request, origin):
+            raise web.HTTPForbidden(text="Origin is not allowed")
         return web.Response(headers={
-            "Access-Control-Allow-Origin":  "*",
+            "Access-Control-Allow-Origin":  origin if PRODUCTION and origin else "*",
             "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-            "Access-Control-Allow-Headers": "Content-Type, X-RIFT-Client-ID, X-RIFT-FILES-TOKEN, Range"
+            "Access-Control-Allow-Headers": "Authorization, Content-Type, X-RIFT-Client-ID, X-RIFT-FILES-TOKEN, Range",
+            "Vary": "Origin"
         })
+    if PRODUCTION:
+        origin = request.headers.get("Origin", "").rstrip("/")
+        if origin and not _origin_allowed(request, origin):
+            raise web.HTTPForbidden(text="Origin is not allowed")
     try:
         response = await handler(request)
     except web.HTTPException as error:
         if request.path.startswith("/api/files/"):
+            headers = {key: value for key, value in error.headers.items()
+                       if key.lower() not in ("content-type", "content-length")}
             response = web.json_response({"error": error.text or error.reason}, status=error.status,
-                                         headers=error.headers)
+                                         headers=headers)
         else:
             raise
-    response.headers["Access-Control-Allow-Origin"] = "*"
+    except Exception:
+        if request.path.startswith("/api/files/"):
+            log.exception("[FILES] Unhandled file API error for %s %s", request.method, request.path)
+            response = web.json_response({"error": "File operation failed on the hub. Check the hub log and retry."}, status=500)
+        else:
+            raise
+    origin = request.headers.get("Origin", "")
+    if not PRODUCTION:
+        response.headers["Access-Control-Allow-Origin"] = "*"
+    elif origin and _origin_allowed(request, origin):
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Vary"] = "Origin"
     response.headers["Access-Control-Expose-Headers"] = "Content-Length, Content-Range, Accept-Ranges, Content-Disposition"
     return response
 
@@ -1039,6 +1125,7 @@ async def main():
     global APP_LOOP
     APP_LOOP = asyncio.get_running_loop()
     app = web.Application(middlewares=[cors_middleware])
+    app.router.add_get("/healthz",             handle_health)
     app.router.add_get("/ws",                 handle_ws)
     app.router.add_post("/api/ping",          handle_ping)
     app.router.add_post("/api/job",           handle_submit_job)
@@ -1058,7 +1145,7 @@ async def main():
     app.router.add_get("/",                   handle_static)
     app.router.add_get("/{path:.*}",          handle_static)
 
-    runner = web.AppRunner(app)
+    runner = web.AppRunner(app, access_log=log)
     await runner.setup()
     site = web.TCPSite(runner, "127.0.0.1", SERVER_PORT)
 
@@ -1066,7 +1153,7 @@ async def main():
     threading.Thread(target=_start_iot_subscriber, daemon=True).start()
 
     # Start async background polling tasks
-    asyncio.create_task(job_polling_loop())
+    polling_task = asyncio.create_task(job_polling_loop())
 
     print("\n" + "=" * 64)
     print(">>> R.I.F.T. LOCAL SERVER RUNNING <<<")
@@ -1077,12 +1164,29 @@ async def main():
     print()
     print(f"  AWS:  profile={PROFILE}  region={REGION}")
     print(f"  IoT:  {IOT_ENDPOINT}")
-    print(f"  LLM:  {OLLAMA_MODEL} via Ollama")
+    print(f"  LLM:  agents run {OLLAMA_MODEL} via local Ollama")
     print("=" * 64 + "\n")
 
     await site.start()
-    while True:
-        await asyncio.sleep(3600)
+    stop_event = asyncio.Event()
+    loop = asyncio.get_running_loop()
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        try:
+            loop.add_signal_handler(sig, stop_event.set)
+        except (NotImplementedError, RuntimeError):
+            pass
+    try:
+        await stop_event.wait()
+    finally:
+        global SHUTTING_DOWN
+        SHUTTING_DOWN = True
+        SHUTDOWN_EVENT.set()
+        polling_task.cancel()
+        await asyncio.gather(polling_task, return_exceptions=True)
+        for ws in list(ws_clients):
+            if not ws.closed:
+                await ws.close(code=1001, message=b"hub shutting down")
+        await runner.cleanup()
 
 
 if __name__ == "__main__":

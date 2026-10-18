@@ -1,0 +1,27 @@
+[Unit]
+Description=R.I.F.T. single-instance Python hub
+After=network-online.target nginx.service
+Wants=network-online.target
+ConditionPathExists=/etc/rift-hub/hub-secrets.env
+
+[Service]
+Type=simple
+User=rift
+Group=rift
+WorkingDirectory=/opt/rift
+EnvironmentFile=/etc/rift-hub/hub-defaults.env
+EnvironmentFile=/etc/rift-hub/hub-secrets.env
+ExecStart=/opt/rift/.venv/bin/python -u /opt/rift/server/rift_server.py
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+KillSignal=SIGTERM
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/rift
+
+[Install]
+WantedBy=multi-user.target

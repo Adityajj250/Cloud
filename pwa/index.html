@@ -116,11 +116,11 @@
     </section>
     <section class="bg-slate-900 border border-slate-800 rounded-xl p-5">
       <h2 class="font-semibold mb-2">Phone screen control</h2>
-      <p id="laptop-control-state" class="text-sm text-slate-400">No phone is controlling the laptop. The pairing PIN is shown in the Windows agent terminal.</p>
+      <p id="laptop-control-state" class="text-sm text-slate-400">No phone has picked up the laptop.</p>
     </section>
     <section class="xl:col-span-2 bg-slate-900 border border-slate-800 rounded-xl p-5">
-      <div class="flex items-center justify-between gap-3"><div><h2 class="font-semibold">Shared folders and incoming files</h2><p class="mt-1 text-xs text-slate-400">The agent creates a common folder and inbox in its Windows user profile.</p></div><span id="laptop-files-service-state" class="rounded-full bg-slate-800 px-2.5 py-1 text-[10px] text-slate-400">Select a computer</span></div>
-      <div class="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3"><div class="rounded-lg border border-slate-800 bg-slate-950 p-3"><div class="text-xs font-semibold">Selected computer</div><div id="laptop-share-device" class="mt-1 text-xs text-slate-400">Select a computer from the fleet.</div><div class="mt-2 text-[10px] text-slate-500">Browse: RIFT Shared · Phone uploads: RIFT Inbox · Uploads go to Quarantine for risky file types.</div></div><div class="rounded-lg border border-slate-800 bg-slate-950 p-3"><div class="text-xs font-semibold">Recent phone uploads</div><div id="laptop-files-log" class="mt-2 space-y-1 text-[11px] text-slate-500">No uploads reported in this session.</div><div class="mt-2 text-[10px] text-slate-500">Executable and script files are quarantined automatically; they are never opened by R.I.F.T.</div></div></div>
+      <div class="flex items-center justify-between gap-3"><div><h2 class="font-semibold">Shared folder</h2><p class="mt-1 text-xs text-slate-400">The phone and computer use one common folder in the computer's Windows profile.</p></div><span id="laptop-files-service-state" class="rounded-full bg-slate-800 px-2.5 py-1 text-[10px] text-slate-400">Select a computer</span></div>
+      <div class="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3"><div class="rounded-lg border border-slate-800 bg-slate-950 p-3"><div class="text-xs font-semibold">Selected computer</div><div id="laptop-share-device" class="mt-1 text-xs text-slate-400">Select a computer from the fleet.</div><div class="mt-2 text-[10px] text-slate-500">Phone uploads and computer files share the same RIFT Shared folder. Risky file types go to Quarantine.</div></div><div class="rounded-lg border border-slate-800 bg-slate-950 p-3"><div class="text-xs font-semibold">Recent phone uploads</div><div id="laptop-files-log" class="mt-2 space-y-1 text-[11px] text-slate-500">No uploads reported in this session.</div><div class="mt-2 text-[10px] text-slate-500">Executable and script files are quarantined automatically; they are never opened by R.I.F.T.</div></div></div>
     </section>
     <section class="xl:col-span-2 bg-slate-900 border border-slate-800 rounded-xl p-5">
       <div class="flex justify-between items-center mb-3"><h2 class="font-semibold">Compute jobs and results</h2><button onclick="loadJobs()" class="text-xs text-sky-400">Refresh</button></div>
@@ -164,17 +164,17 @@
     <div class="flex items-start justify-between gap-3"><div><h2 class="font-semibold">Files</h2><p class="mt-1 text-xs text-slate-400">Browse an approved folder or send files to a computer that is online.</p></div><span id="files-device-state" class="shrink-0 rounded-full bg-slate-800 px-2.5 py-1 text-[10px] text-slate-400">Choose a computer</span></div>
     <label class="mt-3 block text-[11px] text-slate-400" for="files-device-select">Target computer</label>
     <select id="files-device-select" onchange="selectDevice(this.value); updateFilesDeviceState()" class="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm"><option value="">No computers connected</option></select>
-    <div id="files-status" class="mt-3 rounded-lg border border-slate-800 bg-slate-950 p-3 text-[11px] text-slate-300">Pair with the selected computer in Screen Share using its PIN before browsing or transferring files.</div>
+    <div id="files-status" class="mt-3 rounded-lg border border-slate-800 bg-slate-950 p-3 text-[11px] text-slate-300">Pick up the selected computer in Screen Share before browsing or transferring files.</div>
   </div>
   <div class="rounded-xl border border-slate-800 bg-slate-900 p-4 space-y-3">
     <div class="flex items-center justify-between"><h3 class="text-sm font-semibold">Browse computer</h3><button onclick="loadFiles()" class="rounded-lg bg-slate-800 px-3 py-2 text-[11px] text-sky-300">Refresh</button></div>
-    <div class="flex gap-2"><button onclick="loadFiles('shared')" id="files-shared-btn" class="rounded-lg bg-sky-700 px-3 py-2 text-[11px]">RIFT Shared</button><button onclick="loadFiles('inbox')" id="files-inbox-btn" class="rounded-lg bg-slate-800 px-3 py-2 text-[11px]">RIFT Inbox</button></div>
+    <div class="flex gap-2"><button onclick="loadFiles('shared')" id="files-shared-btn" class="rounded-lg bg-sky-700 px-3 py-2 text-[11px]">Shared folder</button></div>
     <div id="files-breadcrumb" class="flex items-center gap-2 text-[11px] text-slate-500"><button onclick="loadFiles(filesScope,filesRootPathId)">Home</button></div>
     <div class="flex gap-2"><input id="files-search" type="search" oninput="renderFilesEntries()" placeholder="Search files" class="min-w-0 flex-1 rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-xs"/><select id="files-sort" onchange="renderFilesEntries()" class="rounded-lg border border-slate-800 bg-slate-950 px-2 py-2 text-xs"><option value="name">Name</option><option value="modified">Modified</option><option value="size">Size</option></select></div>
     <div id="files-entries" class="max-h-[45vh] space-y-1 overflow-y-auto rounded-lg border border-slate-800 bg-slate-950 p-2"><div class="p-4 text-center text-xs text-slate-500">Choose a computer and tap Refresh.</div></div>
   </div>
   <div class="rounded-xl border border-slate-800 bg-slate-900 p-4">
-    <div class="flex items-center justify-between gap-3"><div><h3 class="text-sm font-semibold">Send to computer</h3><p class="mt-1 text-[11px] text-slate-400">Uploads go to the selected online computer’s RIFT Inbox.</p></div><div class="flex gap-2"><label class="cursor-pointer rounded-lg bg-slate-800 px-3 py-2 text-[11px]">Gallery<input id="files-gallery-input" type="file" accept="image/*" multiple class="hidden" onchange="uploadSelectedFiles(this.files);this.value=''"></label><label class="cursor-pointer rounded-lg bg-slate-800 px-3 py-2 text-[11px]">Camera<input id="files-camera-input" type="file" accept="image/*" capture="environment" class="hidden" onchange="uploadSelectedFiles(this.files);this.value=''"></label><label class="cursor-pointer rounded-lg bg-sky-700 px-3 py-2 text-[11px]">Choose files<input id="files-input" type="file" multiple class="hidden" onchange="uploadSelectedFiles(this.files);this.value=''"></label></div></div>
+    <div class="flex items-center justify-between gap-3"><div><h3 class="text-sm font-semibold">Add to shared folder</h3><p class="mt-1 text-[11px] text-slate-400">Uploads appear in the same folder the computer shares with your phone.</p></div><div class="flex gap-2"><label class="cursor-pointer rounded-lg bg-slate-800 px-3 py-2 text-[11px]">Gallery<input id="files-gallery-input" type="file" accept="image/*" multiple class="hidden" onchange="uploadSelectedFiles(this.files);this.value=''"></label><label class="cursor-pointer rounded-lg bg-slate-800 px-3 py-2 text-[11px]">Camera<input id="files-camera-input" type="file" accept="image/*" capture="environment" class="hidden" onchange="uploadSelectedFiles(this.files);this.value=''"></label><label class="cursor-pointer rounded-lg bg-sky-700 px-3 py-2 text-[11px]">Choose files<input id="files-input" type="file" multiple class="hidden" onchange="uploadSelectedFiles(this.files);this.value=''"></label></div></div>
     <div id="files-transfer-queue" class="mt-3 space-y-2"><div data-empty-queue class="rounded-lg bg-slate-950 p-3 text-[11px] text-slate-500">Transfer queue is empty.</div></div>
   </div>
   <div id="files-viewer" class="hidden rounded-xl border border-slate-800 bg-slate-900 p-4"><div class="mb-3 flex items-center justify-between"><div id="files-viewer-title" class="truncate text-sm font-semibold">File preview</div><button onclick="closeFileViewer()" class="rounded bg-slate-800 px-3 py-1.5 text-xs">Close</button></div><video id="files-video" controls playsinline class="hidden max-h-[65vh] w-full bg-black"></video><img id="files-image" class="hidden max-h-[65vh] max-w-full mx-auto object-contain"/><iframe id="files-document" title="Document preview" class="hidden h-[65vh] w-full rounded bg-white"></iframe><div id="files-viewer-error" class="hidden text-xs text-amber-300"></div><div class="mt-2 flex justify-end"><select id="files-video-speed" onchange="document.getElementById('files-video').playbackRate=Number(this.value)" class="rounded bg-slate-950 px-2 py-1 text-[10px]"><option value="1">1×</option><option value="1.25">1.25×</option><option value="1.5">1.5×</option><option value="2">2×</option></select></div></div>
@@ -280,8 +280,14 @@
 <section id="s-llm" class="hidden space-y-3">
 
   <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 text-[11px] text-slate-400">
-    <span class="text-sky-400 font-semibold">qwen2.5:3b</span> runs on your laptop CPU via Ollama.
-    The completed response is returned after generation. Nothing is stored on your phone.
+    <span class="text-sky-400 font-semibold">qwen2.5:3b</span> runs through Ollama on the selected online computer.
+    Start Ollama on that computer; responses stream back through the hub. Nothing is stored on your phone.
+  </div>
+
+  <div class="rounded-xl border border-slate-800 bg-slate-900 p-3">
+    <label for="llm-device-select" class="mb-1 block text-[11px] text-slate-400">Run on computer</label>
+    <select id="llm-device-select" onchange="selectLlmDevice(this.value)" class="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs"><option value="">No computer with Ollama available</option></select>
+    <div id="llm-device-state" class="mt-2 text-[10px] text-slate-500">The computer's R.I.F.T. agent must be connected and Ollama must be running.</div>
   </div>
 
   <div id="chat-box" class="bg-slate-950 border border-slate-800 rounded-xl p-3 h-72 overflow-y-auto space-y-3 text-xs font-mono">
@@ -300,10 +306,10 @@
 <!-- ════════════════ SCREEN SHARE TAB ════════════════ -->
 <section id="s-screen" class="hidden space-y-3">
   <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3">
-    <div><div class="font-semibold text-slate-100">View and control a computer</div><p class="text-xs text-slate-400 mt-1">Select a computer, then enter the six-digit Screen Share PIN printed by its agent. Each computer can have one controlling phone.</p></div>
-    <div id="screen-files-entry" class="rounded-lg border border-slate-800 bg-slate-950 p-3 text-[11px] text-slate-500">Select a computer with the Files capability to send a document to its RIFT Inbox.</div>
+    <div><div class="font-semibold text-slate-100">Pick up and control a computer</div><p class="text-xs text-slate-400 mt-1">Select an available computer and pick it up. One phone can hold a computer at a time; tap Drop when finished.</p></div>
+    <div id="screen-files-entry" class="rounded-lg border border-slate-800 bg-slate-950 p-3 text-[11px] text-slate-500">Select a computer with Files enabled to use its shared folder.</div>
     <select id="control-device-select" onchange="selectDevice(this.value)" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm"><option value="">No computers connected</option></select>
-    <div class="flex gap-2"><input id="control-pin" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="6-digit PIN" class="min-w-0 flex-1 bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm font-mono tracking-widest"/><button id="control-connect" onclick="requestLaptopControl()" class="bg-sky-600 px-4 py-2 rounded-lg text-sm font-semibold">Connect</button><button id="control-stop" onclick="stopLaptopControl()" class="hidden bg-red-700 px-3 py-2 rounded-lg text-sm">Stop</button></div>
+    <div class="flex gap-2"><button id="control-connect" onclick="requestLaptopControl()" class="bg-sky-600 px-4 py-2 rounded-lg text-sm font-semibold">Pick up</button><button id="control-stop" onclick="stopLaptopControl()" class="hidden bg-red-700 px-3 py-2 rounded-lg text-sm">Drop</button></div>
     <div id="control-status" class="text-xs text-slate-400">Not connected. The laptop agent must be running.</div>
   </div>
   <div id="screen-control-panel" class="hidden bg-slate-950 border border-slate-800 rounded-xl p-2 space-y-2">
@@ -339,6 +345,8 @@ const CLIENT_ID = localStorage.getItem('rift-client-id') || (() => { const id = 
 const CLIENT_NAME = localStorage.getItem('rift-client-name') || ('Mobile ' + CLIENT_ID.slice(-4));
 let fleetDevices = new Map();
 let selectedDeviceId = localStorage.getItem('rift-selected-device') || '';
+let selectedLlmDeviceId = localStorage.getItem('rift-selected-llm-device') || '';
+let activeLlmJob = null;
 let controlDeviceId = '';
 let pingDeviceId = '';
 let filesScope = 'shared';
@@ -372,7 +380,7 @@ let virtualShift = false;
 // ─── WebSocket ──────────────────────────────────────────────────────────────
 function connectWS() {
   logMsg('Connecting to R.I.F.T. laptop server…');
-  ws = new WebSocket(WS);
+  ws = new WebSocket(WS, ['rift.v1']);
 
   ws.onopen = () => {
     setWsBadge(true);
@@ -384,7 +392,7 @@ function connectWS() {
   ws.onclose = () => {
     setWsBadge(false);
     for(const key of [...filesAccessTokens.keys()]) { sessionStorage.removeItem(`rift-files-token:${key}`); filesAccessTokens.delete(key); }
-    if(VIEW === 'mobile' && controlActive) setControlStatus(false, 'Connection lost. Reconnect and enter the PIN again.');
+    if(VIEW === 'mobile' && controlActive) setControlStatus(false, 'Connection lost. Pick up the computer again when it reconnects.');
     logMsg('⚠ WebSocket disconnected – reconnecting in 5s…');
     setTimeout(connectWS, 5000);
   };
@@ -476,6 +484,18 @@ function handleServerMsg(m) {
       renderJobs(m.jobs);
       break;
 
+    case 'llm_token':
+      if(activeLlmJob && m.jobId === activeLlmJob.jobId) {
+        const response = document.getElementById(activeLlmJob.responseId);
+        if(m.error) finishLlmJob(m.jobId, m.error);
+        else if(response && m.token) {
+          response.textContent += m.token;
+          document.getElementById('chat-box').scrollTop = document.getElementById('chat-box').scrollHeight;
+        }
+        if(m.done) finishLlmJob(m.jobId);
+      }
+      break;
+
     case 'job_created':
       logMsg(`✓ Job ${m.jobId} created (${m.type}, ${m.chunks} chunks → SQS)`);
       loadJobs();
@@ -492,7 +512,7 @@ function handleServerMsg(m) {
         if(logEl) {
           if(logEl.textContent.includes('No uploads reported')) logEl.textContent='';
           const row=document.createElement('div');
-          row.textContent=`${new Date().toLocaleTimeString()} · ${m.name} · ${fileSize(m.size)} · ${m.quarantined?'Quarantine review required':m.path||'RIFT Inbox'} · from ${m.clientId}`;
+          row.textContent=`${new Date().toLocaleTimeString()} · ${m.name} · ${fileSize(m.size)} · ${m.quarantined?'Quarantine review required':m.path||'RIFT Shared'} · from ${m.clientId}`;
           logEl.prepend(row);
         }
       }
@@ -592,6 +612,25 @@ function renderDevices(items) {
     filesSelector.value = selected || '';
   }
 
+  const llmDevices = list.filter(device=>Array.isArray(device.capabilities) && device.capabilities.includes('llm'));
+  if(!llmDevices.some(device=>device.deviceId===selectedLlmDeviceId)) {
+    selectedLlmDeviceId = llmDevices.find(device=>device.online)?.deviceId || llmDevices[0]?.deviceId || '';
+  }
+  const llmSelector = document.getElementById('llm-device-select');
+  if(llmSelector) {
+    llmSelector.replaceChildren();
+    if(!llmDevices.length) llmSelector.add(new Option('No computer currently reports Ollama', ''));
+    for(const device of llmDevices) llmSelector.add(new Option(`${device.online?'●':'○'} ${device.name || device.deviceId}${device.online?' · LLM ready':' · offline'}`, device.deviceId));
+    llmSelector.value = selectedLlmDeviceId;
+  }
+  const llmState = document.getElementById('llm-device-state');
+  if(llmState) {
+    const llmDevice = llmDevices.find(device=>device.deviceId===selectedLlmDeviceId);
+    llmState.textContent = !llmDevice ? 'No connected computer advertises the configured Ollama model. Start Ollama, install the model, then restart that computer’s agent.'
+      : llmDevice.online ? `Ready on ${llmDevice.name || llmDevice.deviceId}.`
+      : `${llmDevice.name || llmDevice.deviceId} is offline. Start its R.I.F.T. agent.`;
+  }
+
   const onlineCount = online.length;
   const badge = document.getElementById('laptop-badge');
   if(badge) {
@@ -640,7 +679,7 @@ function renderDevices(items) {
 
 function selectDevice(deviceId) {
   if(!deviceId || !fleetDevices.has(deviceId)) return;
-  if(controlActive && deviceId !== controlDeviceId) stopLaptopControl();
+  if(controlDeviceId && deviceId !== controlDeviceId) stopLaptopControl();
   selectedDeviceId = deviceId;
   localStorage.setItem('rift-selected-device', deviceId);
   const selector = document.getElementById('control-device-select');
@@ -663,10 +702,17 @@ function selectDevice(deviceId) {
   filesPathStack = [];
   filesCurrentPathId = filesRootPathId;
   closeFileViewer();
-  setControlStatus(false, `${fleetDevices.get(deviceId)?.name || deviceId} selected. Connect with that computer's PIN to start a fresh stream.`);
+  setControlStatus(false, `${fleetDevices.get(deviceId)?.name || deviceId} selected. Pick it up to start controlling it.`);
   renderDevices([]);
   if(document.getElementById('s-files')?.classList.contains('hidden') === false) loadFiles();
   logMsg(`Selected computer ${fleetDevices.get(deviceId)?.name || deviceId}.`);
+}
+
+function selectLlmDevice(deviceId) {
+  if(!deviceId || !fleetDevices.has(deviceId)) return;
+  selectedLlmDeviceId = deviceId;
+  localStorage.setItem('rift-selected-llm-device', deviceId);
+  renderDevices([]);
 }
 
 function renderSelectedDevice() {
@@ -709,7 +755,7 @@ function updateFilesDeviceState() {
   }
   if(screenEntry) {
     screenEntry.innerHTML = capable && device.online
-      ? `<div class="flex items-center justify-between gap-2"><span>Browse or send files to <strong class="text-slate-300">${escapeHtml(device.name||device.deviceId)} · RIFT Inbox</strong></span><button onclick="tab('files')" class="shrink-0 rounded-lg bg-sky-700 px-3 py-2 text-[11px] text-white">Open Files</button></div><div class="mt-1 text-[10px] text-slate-500">File access requires this phone to be paired to the selected computer.</div>`
+      ? `<div class="flex items-center justify-between gap-2"><span>Browse or send files to <strong class="text-slate-300">${escapeHtml(device.name||device.deviceId)} · RIFT Shared</strong></span><button onclick="tab('files')" class="shrink-0 rounded-lg bg-sky-700 px-3 py-2 text-[11px] text-white">Open Files</button></div><div class="mt-1 text-[10px] text-slate-500">Pick up the computer in Screen Share to access its shared folder.</div>`
       : 'File access requires an online computer with the Files capability.';
   }
 }
@@ -811,19 +857,20 @@ async function loadFiles(scope=filesScope, pathId=null, append=false, offset=0) 
   if(!append) filesNextOffset = null;
   const device = fleetDevices.get(selectedDeviceId);
   if(scope !== filesScope) {
-    filesScope = scope;
-    filesRootPathId = scope === 'inbox' ? 'inbox-root' : 'shared-root';
+    filesScope = 'shared';
+    filesRootPathId = 'shared-root';
     filesPathStack = [];
   }
   filesCurrentPathId = pathId || (filesPathStack.at(-1)?.pathId || filesRootPathId);
   const container = document.getElementById('files-entries');
-  const scopeName = filesScope === 'inbox' ? 'RIFT Inbox' : 'RIFT Shared';
+  filesScope = 'shared';
+  filesRootPathId = 'shared-root';
+  const scopeName = 'RIFT Shared';
   document.getElementById('files-shared-btn')?.classList.toggle('bg-sky-700', filesScope==='shared');
   document.getElementById('files-shared-btn')?.classList.toggle('bg-slate-800', filesScope!=='shared');
-  document.getElementById('files-inbox-btn')?.classList.toggle('bg-sky-700', filesScope==='inbox');
-  document.getElementById('files-inbox-btn')?.classList.toggle('bg-slate-800', filesScope!=='inbox');
+  document.getElementById('files-inbox-btn')?.classList.add('hidden');
   if(!device || !device.online || !device.capabilities?.includes('files')) {
-    setFilesStatus(device ? (device.online?'This computer does not provide the Files capability. Update and restart its agent.':'This computer is offline; file access is online-only.') : 'Select a computer, then pair it in Screen Share using its PIN.', true);
+    setFilesStatus(device ? (device.online?'This computer does not provide the Files capability. Update and restart its agent.':'This computer is offline; file access is online-only.') : 'Select a computer, then pick it up in Screen Share.', true);
     filesEntries = [];
     renderFilesEntries();
     return;
@@ -941,8 +988,8 @@ async function uploadOneFile(device,file) {
     state.textContent=finishData.quarantined?'Quarantined for laptop approval':'Complete';
     state.className='text-[10px] text-emerald-300';
     sizeLabel.textContent=`${fileSize(finishData.size)} · SHA-256 ${String(finishData.sha256||'').slice(0,16)}…`;
-    setFilesStatus(finishData.quarantined?`${file.name} was placed in Quarantine; do not run it until the laptop owner reviews it.`:`${file.name} saved to ${finishData.path||'RIFT Inbox'}.`);
-    if(filesScope==='inbox') await loadFiles('inbox',filesCurrentPathId);
+    setFilesStatus(finishData.quarantined?`${file.name} was placed in RIFT Shared\\Quarantine; review it on the computer.`:`${file.name} saved to ${finishData.path||'RIFT Shared'}.`);
+    if(filesScope==='shared') await loadFiles('shared',filesCurrentPathId);
   } catch(error) {
     state.textContent='Interrupted · reselect to resume'; state.className='text-[10px] text-amber-300';
     sizeLabel.textContent=error.message||'Upload failed'; setFilesStatus(error.message||'Upload failed. Reselect this same file to resume.',true);
@@ -954,15 +1001,13 @@ function sendControlInput(event) {
     ws.send(JSON.stringify({type:'control_input', deviceId:controlDeviceId, event}));
 }
 function requestLaptopControl() {
-  const pin = document.getElementById('control-pin').value.trim();
-  if(!/^\d{6}$/.test(pin)) { setControlStatus(false, 'Enter the six-digit PIN shown in the laptop agent terminal.'); return; }
   const selector = document.getElementById('control-device-select');
   selectedDeviceId = selector?.value || selectedDeviceId;
   if(!selectedDeviceId) { setControlStatus(false, 'No computer is available. Start its agent and connect it to this hub.'); return; }
   if(!ws || ws.readyState !== WebSocket.OPEN) { setControlStatus(false, 'R.I.F.T. server is disconnected.'); return; }
   controlDeviceId = selectedDeviceId;
-  setControlStatus(false, 'Checking PIN and connecting…');
-  ws.send(JSON.stringify({type:'control_request', deviceId:controlDeviceId, pin}));
+  setControlStatus(false, 'Requesting this computer…');
+  ws.send(JSON.stringify({type:'control_request', deviceId:controlDeviceId}));
 }
 function setControlStatus(ok, message) {
   controlActive = ok;
@@ -1503,6 +1548,13 @@ async function sendPrompt() {
   const input = document.getElementById('prompt-input');
   const prompt = input.value.trim();
   if(!prompt) return;
+  if(activeLlmJob) return;
+  const target = fleetDevices.get(selectedLlmDeviceId);
+  if(!target || !target.online || !target.capabilities?.includes('llm')) {
+    const state = document.getElementById('llm-device-state');
+    if(state) state.textContent = 'Choose an online computer that advertises LLM. Start Ollama, install the model, then restart its R.I.F.T. agent if it is missing.';
+    return;
+  }
 
   const chat = document.getElementById('chat-box');
   // User bubble
@@ -1511,33 +1563,43 @@ async function sendPrompt() {
   chat.scrollTop = chat.scrollHeight;
 
   // Assistant bubble
-  const respId = 'resp-' + Date.now();
-  chat.innerHTML += `<div><div class="text-[10px] text-slate-500 mb-1">qwen2.5:3b (laptop CPU)</div><div id="${respId}" class="bg-slate-900 border border-slate-700 text-slate-200 px-3 py-2 rounded-xl rounded-tl-sm max-w-xs whitespace-pre-wrap"></div></div>`;
+  const jobId = 'llm-' + crypto.randomUUID().replaceAll('-', '');
+  const respId = 'resp-' + jobId;
+  chat.innerHTML += `<div><div class="text-[10px] text-slate-500 mb-1">qwen2.5:3b · ${escapeHtml(target.name || target.deviceId)}</div><div id="${respId}" class="bg-slate-900 border border-slate-700 text-slate-200 px-3 py-2 rounded-xl rounded-tl-sm max-w-xs whitespace-pre-wrap"></div></div>`;
   chat.scrollTop = chat.scrollHeight;
 
   document.getElementById('llm-btn').disabled = true;
   document.getElementById('llm-btn').textContent = '…';
   logMsg(`→ LLM prompt: ${prompt.slice(0,50)}…`);
+  activeLlmJob = {jobId, deviceId:target.deviceId, responseId:respId,
+    timer:setTimeout(()=>finishLlmJob(jobId, 'The computer did not finish the request. Check that Ollama is running.'), 240000)};
 
   try {
     const res = await fetch(`${BASE}/api/llm`, {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({prompt})
+      body: JSON.stringify({prompt, jobId, deviceId:target.deviceId, clientId:CLIENT_ID})
     });
 
     const result = await res.json();
     if (!res.ok) throw new Error(result.error || `HTTP ${res.status}`);
-    document.getElementById(respId).textContent = result.response || '';
-    chat.scrollTop = chat.scrollHeight;
-    logMsg('✓ LLM response complete');
+    logMsg(`LLM request sent to ${target.name || target.deviceId}.`);
   } catch(e) {
-    document.getElementById(respId).textContent = '✗ Error: ' + e.message;
+    finishLlmJob(jobId, e.message);
     logMsg('✗ LLM stream error: ' + e.message);
   }
+}
 
+function finishLlmJob(jobId, error='') {
+  if(!activeLlmJob || activeLlmJob.jobId !== jobId) return;
+  clearTimeout(activeLlmJob.timer);
+  const response = document.getElementById(activeLlmJob.responseId);
+  if(response && error) response.textContent = 'Error: ' + error;
+  else if(response && !response.textContent.trim()) response.textContent = 'The model returned no text.';
+  activeLlmJob = null;
   document.getElementById('llm-btn').disabled = false;
   document.getElementById('llm-btn').textContent = 'Send';
+  if(!error) logMsg('✓ LLM response complete');
 }
 
 // ─── Init ────────────────────────────────────────────────────────────────────

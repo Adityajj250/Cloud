@@ -1,8 +1,8 @@
 # R.I.F.T.
 
-R.I.F.T. is a development-stage remote command center for one or more computers. Phone and laptop browsers connect to a hub; Windows agents provide telemetry, compute work, and consent-based remote screen control. The server handles the web API and phone-camera processing. AWS services coordinate worker commands and distributed jobs. A temporary Cloudflare Tunnel lets clients and agents reach the local hub from other networks without router port forwarding.
+R.I.F.T. is a development-stage remote command center for one or more computers. Phone and laptop browsers connect to a hub; Windows agents provide telemetry, compute work, and consent-based remote screen control. The server handles the web API and phone-camera processing. AWS services coordinate worker commands and distributed jobs. A single EC2 hub is deployed in `ap-southeast-2`; local development with a temporary Cloudflare Tunnel remains available.
 
-> **Development project:** defaults in the source are for one test setup. The server contains fixed AWS resource names, a fixed AWS CLI profile, and a development HMAC secret. The public test tunnel exposes the server to anyone with its URL. Do not use these defaults with sensitive data or as a production deployment.
+> **Development project:** local defaults in the source are for one test setup, including a development HMAC secret. The public Quick Tunnel and hosted test hub allow unauthenticated API and WebSocket access to anyone who can reach their URLs. The hub still uses the shared HMAC secret for signed AWS IoT commands and a dedicated hub IoT listener certificate. The hosted test hub's runtime IAM policy is broader than least privilege; see [the EC2 migration guide](infra/README.md) before production use.
 
 ## Features
 
@@ -12,27 +12,24 @@ R.I.F.T. is a development-stage remote command center for one or more computers.
 | **Laptop console** | Opens with `?view=laptop`. Shows connected mobile clients, lets the laptop ping them, displays the phone camera preview, shows remote-control status, and lists compute jobs. |
 | **Compute** | Submits chunked Monte Carlo, matrix multiplication, or image-tile jobs. The server records jobs/chunks in DynamoDB and enqueues chunks in SQS; the agent polls for work, executes it on CPU, and stores results for aggregation. |
 | **Vision** | Captures frames from the phone's rear camera in the browser, sends them to the server over HTTPS, and runs OpenCV Haar-cascade face detection. Detection results and a camera preview are sent to the laptop console. This is face detection, not general-purpose object recognition. |
-| **LLM** | Sends prompts to Ollama running on the server/laptop, using `qwen2.5:3b` by default. The response is returned when generation completes; the public Quick Tunnel path does not stream tokens to the browser. |
-| **Screen Share** | Selects a computer and pairs with its Windows agent using the six-digit PIN printed by that agent. Streams at up to 1280×720 (about five frames per second) and relays mouse and virtual-keyboard input. Each computer has one controller; different phones can control different computers. |
-| **Files (development)** | After pairing to a computer in Screen Share, browse/search its shared files, preview or download supported files, and upload files to its inbox. Uploads are chunked and can resume in the same browser session. The agent creates `RIFT Shared`, `RIFT Inbox`, and `RIFT Inbox\Quarantine` under its Windows user profile. Risky executable/script extensions are quarantined; R.I.F.T. never runs uploaded files. |
-| **Cross-network access** | The Quick Tunnel publishes the local web server through a temporary HTTPS URL. The worker agent also connects outbound to AWS IoT Core over TLS, so the phone and laptop do not have to share a Wi-Fi network. |
+| **LLM** | Sends prompts through the hub to a selected online computer agent. That computer runs Ollama locally with `qwen2.5:3b` by default and streams generated tokens back through AWS IoT. The EC2 hub does not need to run a model. |
+| **Screen Share** | Selects an available computer and lets one phone pick it up until it drops the session or disconnects. Streams at up to 1280×720 (about five frames per second) and relays mouse and virtual-keyboard input. |
+| **Files (development)** | The phone and computer browse, upload, and download from the same `RIFT Shared` folder. Uploads are chunked and can resume in the same browser session. Risky executable/script extensions are quarantined under `RIFT Shared\Quarantine`; R.I.F.T. never runs uploaded files. |
+| **Cross-network access** | Development uses a temporary Cloudflare Quick Tunnel. The hosted test hub uses a stable CloudFront HTTPS/WSS endpoint for the phone PWA and computer agents. Worker agents connect outbound to AWS IoT Core over TLS, so devices do not need to share Wi-Fi. |
 | **Android wrapper** | A native Android WebView shell opens the same HTTPS PWA and supports camera permission requests, file selection/upload, downloads, and fullscreen video. The browser PWA is the simplest way to test features. |
 
 ## Architecture
 
 ```text
-Phone browser / Android wrapper ── HTTPS + WebSocket ── Cloudflare Quick Tunnel
-                                                           │
-                                                           ▼
-                                                    Local R.I.F.T. server
-                                                     │              │
-                                          local WebSocket       AWS services
-                                                     │       IoT Core / SQS /
-                                                     ▼       DynamoDB / S3
-                                        Windows agents A…N ──────┘
+Development: Phone / Laptop / Agents ── HTTPS + WSS ── Cloudflare Quick Tunnel ── Local hub
+                                                                                │
+Hosted:      Phone / Laptop / Agents ── HTTPS + WSS ── CloudFront ── Nginx ─────┤
+                                                                        EC2 Hub │
+                                                                                ├─ agent WebSockets
+                                                                                └─ AWS IoT / SQS / DynamoDB / S3
 ```
 
-- The server binds to `127.0.0.1:8765`. The PowerShell script starts the server and the Quick Tunnel.
+- For local development, the server binds to `127.0.0.1:8765`; the PowerShell script starts it and a temporary Quick Tunnel. The deployed EC2 configuration keeps aiohttp loopback-only behind Nginx and CloudFront.
 - Agents connect outbound to the hub using `RIFT_SERVER_URL`; they can run on other computers and networks. The default is `http://127.0.0.1:8765` for a same-computer setup. Configure `RIFT_IOT_CERT`, `RIFT_IOT_PRIVATE_KEY`, and `RIFT_IOT_ROOT_CA` to select that computer's AWS IoT credentials.
 - Each agent gets a stable internal ID on first run in `%LOCALAPPDATA%\RIFT\device.json`. The UI shows the computer's Windows hostname as its friendly name; set `RIFT_DEVICE_NAME` before starting an agent to give it a clearer per-device name. The ID is still used internally for routing and is hidden from the device list.
 - The PWA uses `/api/devices` and device-tagged WebSocket events. The hub keeps connection and controller state per computer; it routes screen frames and input only for the selected device.
@@ -40,13 +37,32 @@ Phone browser / Android wrapper ── HTTPS + WebSocket ── Cloudflare Quick
 - AWS IoT Core carries signed worker commands and results. DynamoDB stores device/job state; SQS queues compute chunks; S3 stores job outputs and viewer artifacts.
 - The web app is served from `pwa/`; use its HTTPS tunnel URL rather than opening `index.html` directly. Camera access requires a secure browser context.
 
+## Hosted test hub
+
+Current test URL: **https://d2nv2vasdntzxl.cloudfront.net**. The endpoint is stable while the `rift-hub-sydney` stack exists. Open this URL in Chrome on the phone. Open `https://d2nv2vasdntzxl.cloudfront.net/?view=laptop` on the laptop for the laptop console. The test hub's APIs and WebSockets do not require a hub access token.
+
+For your own Windows agent, make sure `config/local.ps1` has this computer's AWS profile and IoT certificate paths, then run:
+
+```powershell
+if (-not (Test-Path .\config\local.ps1)) { Copy-Item .\config\local.example.ps1 .\config\local.ps1; notepad .\config\local.ps1 }
+& .\scripts\start_hosted_agent.ps1 -Profile rift-admin -DeviceName 'My Laptop'
+```
+
+To connect a teammate's computer, invite them to the AWS project and have them sign in using their own profile. They need their own IoT certificate/policy, then copy `config/local.example.ps1` to `config/local.ps1` and fill in their device ID, name, and certificate paths. Send the shared HMAC secret privately; they should save it in `config/.secrets/hub/agent-connection.env` as `RIFT_HMAC_SECRET=...`, then run:
+
+```powershell
+& .\scripts\start_hosted_agent.ps1 -Profile rift-admin -SecretsFile config/.secrets/hub/agent-connection.env -DeviceName 'Friend PC' -DeviceId 'friend-pc-01'
+```
+
+Do not share AWS credentials or device private keys. The hosted-agent script validates the AWS project, loads secrets without printing them, and connects to the CloudFront hub. The configured $30 monthly project-wide budget alert is an email notification, not a spending cap.
+
 ## Requirements
 
 - Windows for the worker agent and remote desktop control.
 - Python and pip. Install the project's Python dependencies from `agent/requirements.txt`.
 - AWS CLI authenticated to the project's AWS account, plus a per-device AWS IoT certificate and the AWS resources configured for this project. The default profile name is `rift-admin`; set `RIFT_AWS_PROFILE` (or `AWS_PROFILE`) to use another local profile name. Resource names and the selected Region are still configured for this project.
-- `cloudflared` installed and available on `PATH` for public cross-network testing.
-- Ollama and the `qwen2.5:3b` model for the LLM tab only.
+- `cloudflared` installed and available on `PATH` only when running the local public-test tunnel.
+- Ollama and the `qwen2.5:3b` model on each computer that should provide the LLM capability.
 - Android Studio only if building/running the native wrapper.
 
 ## Run locally and across networks (Windows)
@@ -71,7 +87,7 @@ In a second PowerShell terminal, from the project root and using the same Python
 python .\agent\rift_agent.py
 ```
 
-For an agent on another computer/network, start the tunnel first, then start the agent from a project copy on that computer and point it at the printed HTTPS URL:
+For an agent on another computer/network, start the tunnel first, then start the agent from a project copy on that computer and point it at the printed HTTPS URL (or use the Hosted test hub instructions above):
 
 ```powershell
 $env:RIFT_SERVER_URL = 'https://your-current-name.trycloudflare.com'
@@ -79,20 +95,22 @@ $env:RIFT_DEVICE_NAME = 'Living Room PC'
 python .\agent\rift_agent.py
 ```
 
-Set a different `RIFT_DEVICE_NAME` for each computer (for example, `Office Laptop` or `Gaming PC`). That computer needs the Python dependencies, an AWS CLI profile for a team member invited to your AWS project, and its own AWS IoT certificate permitted to publish and subscribe only to that device's topics. Invite the friend as a team member in AWS Settings, then on their computer sign in to the same project using `aws login --profile rift-admin --region ap-southeast-2` (or use a different profile name and set `RIFT_AWS_PROFILE`). Provision a separate certificate for the friend's device in the project's selected Region; do not copy another device's private key. The Quick Tunnel URL changes when restarted, so remote agents must be restarted with the new URL; a stable named tunnel or hosted hub is the next deployment step.
+Set a different `RIFT_DEVICE_NAME` and unique `RIFT_DEVICE_ID` for each computer (for example, `Gaming PC` and `friend-pc-01`). That computer needs the Python dependencies, an AWS CLI profile for a team member invited to your AWS project, and its own AWS IoT certificate. Invite the friend as a team member in AWS Settings, then sign in on their computer to the same project using `aws login --profile rift-admin --region ap-southeast-2` (or use a different local profile name and set `RIFT_AWS_PROFILE`). Create a separate device certificate and attach an IoT policy scoped to its client ID/topics; the reusable policy template is `agent/certs/rift_device_policy.template.json`. Do not copy another device's private key. The hub and agent must also use the same `RIFT_HMAC_SECRET`; set it in the hub's PowerShell before starting the public-test script and in the agent's PowerShell before starting that agent. Keep this value out of GitHub and transfer it privately. For cross-network use of the deployed hub, follow the Hosted test hub instructions above instead of using the changing local Quick Tunnel URL.
 
-The agent prints a six-digit Screen Share PIN. Keep the agent running in the logged-in Windows desktop session. To use the LLM tab, start Ollama separately and make sure `qwen2.5:3b` is available:
+Keep the agent running in the logged-in Windows desktop session. To provide LLM requests from that computer, install/start Ollama there and download `qwen2.5:3b`:
 
 ```powershell
 ollama pull qwen2.5:3b
 ```
 
+Ollama's default local API is `http://127.0.0.1:11434` (note the five-digit port). The agent checks that Ollama and the model are available when it connects; if you start Ollama or pull the model after the agent, restart the agent so the computer advertises the LLM capability. The phone's LLM tab lets you select among connected computers that advertise it.
+
 Then:
 
 1. Open the printed HTTPS URL in Chrome on the phone.
 2. Open the same URL on the laptop with `?view=laptop` for the laptop console (for example, `https://example.trycloudflare.com/?view=laptop`). Open it without the query on a phone for the mobile interface.
-3. For screen share, open **Screen Share** on the phone, enter the PIN printed by the agent, and connect.
-4. To browse files or upload from the phone, pair to the target computer in **Screen Share**, then open **Files**. Place files to share in `%USERPROFILE%\RIFT Shared`; phone uploads arrive under `%USERPROFILE%\RIFT Inbox`. Risky file types go under `%USERPROFILE%\RIFT Inbox\Quarantine`. The agent creates these folders on first start. Set `RIFT_FILES_ROOT` or `RIFT_INBOX_DIR` before starting the agent to change the locations. If the agent is on another computer/network, set `RIFT_SERVER_URL` to the current tunnel URL before launching it.
+3. For screen share, open **Screen Share** on the phone, select an available computer, and tap **Pick up**. Only one phone can control a computer at a time; tap **Drop** when finished.
+4. To browse, upload, or download files, pick up the target computer, then open **Files**. The phone and computer use `%USERPROFILE%\RIFT Shared` as their common folder. Risky file types go under `%USERPROFILE%\RIFT Shared\Quarantine`. The agent creates the shared folder on first start. Set `RIFT_FILES_ROOT` before starting the agent to change its location. For a computer on another network, use the hosted URL shown under Hosted test hub, or the current tunnel URL for local testing.
 5. To stop, press **Stop** in the phone interface, then Ctrl+C in the tunnel terminal and stop the agent with Ctrl+C.
 
 The AWS CLI login may need to be renewed. If required, run:
@@ -105,7 +123,7 @@ The server exits during startup if it cannot create its AWS session. If the proj
 
 ## Android app (optional)
 
-In Android Studio, open the `mobile-android` directory and run the `app` configuration on a device. On first launch, paste the active HTTPS tunnel URL; use **Set tunnel URL** after restarting the tunnel because Quick Tunnel URLs change. Camera use requires Android's camera permission. File selection, downloads, and fullscreen video are handled by the wrapper; other capabilities come from the same PWA as the mobile browser.
+In Android Studio, open the `mobile-android` directory and run the `app` configuration on a device. On first launch, use the hosted HTTPS URL above or the active local tunnel URL; the tunnel URL changes each time local tunneling restarts. Camera use requires Android's camera permission. File selection, downloads, and fullscreen video are handled by the wrapper; other capabilities come from the same PWA as the mobile browser.
 
 To build a debug APK from PowerShell:
 
@@ -129,15 +147,18 @@ The APK is written to `mobile-android\app\build\outputs\apk\debug\app-debug.apk`
 │   ├── vision/                    OpenCV face detector
 │   ├── certs/                     Local AWS IoT certificates and policy files
 │   ├── identity.py                Stable per-install computer identity
-│   ├── files_service.py           Root-confined shared-folder and inbox operations
+│   ├── files_service.py           Root-confined shared-folder upload/download operations
 │   ├── config.py                  Hub URL, AWS, queue, storage, and model config
 │   ├── requirements.txt           Python dependencies
 │   ├── rift_agent.py              Agent lifecycle, telemetry, job polling, screen relay
 │   └── test_agent.py              Agent/component verification script
 ├── backend/
 │   └── orchestrator/              Standalone job splitter/reducer prototype and test
+├── config/
+│   ├── local.example.ps1          Per-computer AWS profile and IoT certificate paths
+│   └── .secrets/                  Ignored local hub/device credentials
 ├── docs/                          Setup, AWS, Android, operations, and troubleshooting guides
-├── infra/                         Reserved for infrastructure-as-code (currently empty)
+├── infra/ec2/                     Single-instance CloudFormation, systemd, Nginx, and production env example
 ├── mobile-android/                Android WebView wrapper and legacy static helper
 │   ├── app/src/main/               Manifest, Java activity, resources, web assets
 │   ├── gradle/wrapper/              Gradle wrapper files
@@ -146,7 +167,13 @@ The APK is written to `mobile-android\app\build\outputs\apk\debug\app-debug.apk`
 │   ├── index.html                  Browser UI, laptop console, screen-share controls
 │   └── manifest.json               Installable web-app metadata
 ├── scripts/
-│   └── start_public_test.ps1       Starts local server and Cloudflare Quick Tunnel
+│   ├── start_public_test.ps1       Starts local server and Cloudflare Quick Tunnel
+│   ├── start_hosted_agent.ps1      Loads private settings and joins the hosted hub
+│   ├── install_hub_secrets.ps1     Installs hub secrets through SSM and temporary encrypted S3
+│   ├── deploy_hub.ps1              Packages and deploys the single EC2 hub
+│   ├── provision_hub_iot_certificate.ps1 Creates the dedicated hub MQTT certificate
+│   ├── create_hub_budget.ps1       Creates the project budget alert
+│   └── smoke_public_hub.py         Checks auth, presence, ping, screen and input routing
 ├── server/
 │   ├── hub/
 │   │   └── device_registry.py      Per-device sockets, presence, controllers, and SQLite history
@@ -170,12 +197,12 @@ The operations guide contains older implementation notes in places. For current 
 ## Development notes and limitations
 
 - The Quick Tunnel is temporary, and its URL changes when restarted. Anyone who obtains the URL can reach the test server. Keep it private and stop it when testing is done.
-- The app has no general user sign-in and uses permissive CORS. File API requests require a short-lived files token issued after Screen Share PIN pairing with that computer; signed file links expire after ten minutes. Other API routes and pages do not have general user authentication. Treat the tunnel as publicly reachable during its lifetime.
-- Screen-control pairing uses a six-digit PIN and currently allows one controlling phone. The agent must run in the interactive Windows desktop session; it cannot control the lock screen or secure desktop. Games may ignore injected keyboard input, and elevated games may require the agent to run at the same privilege level.
-- Files access is available only to the phone currently paired to that computer for Screen Share. Pairing grants a temporary files token, and the hub relays file data over the agent control WebSocket in bounded 512 KB pieces; heavy transfers can compete with screen frames. Signed links expire after ten minutes. Browser-supported images, PDFs, text, MP4, and WebM can be previewed; playback depends on the browser's codec support. FFmpeg transcoding, upload approval workflows, per-user invites, and view-only grants are not implemented. Keep the URL private and test with non-sensitive files.
+- The test hub has no general sign-in: its APIs and WebSockets are publicly reachable, while production CORS is same-origin by default. Screen Share pickup does not require a PIN; anyone who can access the public hub can try to claim an unclaimed computer. Only one phone holds a computer lease at a time. File API requests require the current controller lease and its temporary file token; signed file links expire after ten minutes.
+- The agent must run in the interactive Windows desktop session; it cannot control the lock screen or secure desktop. Games may ignore injected keyboard input, and elevated games may require the agent to run at the same privilege level.
+- Files access is available only to the phone currently controlling that computer. The hub relays file data over the agent control WebSocket in bounded 512 KB pieces; heavy transfers can compete with screen frames. The common folder is `%USERPROFILE%\RIFT Shared`; uploads appear there, except risky extensions quarantined in its `Quarantine` subfolder. Signed links expire after ten minutes. Browser-supported images, PDFs, text, MP4, and WebM can be previewed; playback depends on the browser's codec support. FFmpeg transcoding, upload approval workflows, per-user invites, and view-only grants are not implemented. Keep the URL private and test with non-sensitive files.
 - The hub supports multiple devices for presence, telemetry, ping routing, and screen control. Authentication/enrollment, phone-to-device access permissions, view-only watchers, per-device AWS IoT provisioning, pinned jobs, and a plugin loader remain future work. The backend/orchestrator directory is a separate prototype, not the server's active API implementation.
-- `server/rift_server.py` contains development defaults, including the `rift-admin` profile, Region/resource names, and HMAC secret. Replace these with environment-specific configuration and rotate credentials/secrets before any deployment beyond private testing.
-- Keep `agent/certs/device.private.key` and other device credentials private. Do not commit or share private keys, AWS credentials, public tunnel URLs, or the screen-share PIN.
+- `server/rift_server.py` retains local development defaults but reads AWS resource names, Region, model, and secrets from environment variables. Production mode requires a shared HMAC secret and a dedicated hub IoT certificate. The hub dispatches LLM requests to an online agent instead of trying to run Ollama on EC2. See [the EC2 migration guide](infra/README.md) before using the deployment artifacts.
+- Keep `agent/certs/device.private.key` and other device credentials private. Do not commit or share private keys, AWS credentials, or public tunnel URLs.
 
 ## Tests and checks
 

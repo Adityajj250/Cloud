@@ -48,7 +48,6 @@ CAPTURE_MODE = os.getenv("RIFT_CAPTURE_MODE", "follow").strip().lower()
 import asyncio
 import base64
 import io
-import secrets
 import logging
 import psutil
 from PIL import ImageGrab
@@ -153,11 +152,9 @@ class RiftAgent:
             self.devices_tbl = self.jobs_tbl = self.chunks_tbl = None
 
         self.running = False
-        self.control_pin = f"{secrets.randbelow(1_000_000):06d}"
         self.control_client_id = None
         self.control_held_keys = set()
         self.capture_rect = None  # (left, top, right, bottom) in virtual-desktop pixels
-        self.control_failures = {"count": 0, "blocked_until": 0.0}
         self.cmd_topic    = f"rift/{self.config.device_id}/cmd"
         self.status_topic = f"rift/{self.config.device_id}/status"
         self.result_topic = f"rift/{self.config.device_id}/result"
@@ -208,7 +205,6 @@ class RiftAgent:
         logger.info(f"[START] R.I.F.T. Agent starting on Windows [{self.config.device_id}]…")
         self.running = True
 
-        logger.warning("[CONTROL] Pairing PIN for Screen Share: %s (enter this on your phone; do not share it)", self.control_pin)
         self.control_thread = threading.Thread(target=self._control_relay_thread, daemon=True)
         self.control_thread.start()
 
@@ -253,7 +249,8 @@ class RiftAgent:
             try:
                 timeout = aiohttp.ClientTimeout(total=None, connect=3)
                 async with aiohttp.ClientSession(timeout=timeout) as session:
-                    async with session.ws_connect(url, heartbeat=15, max_msg_size=2 * 1024 * 1024) as ws:
+                    async with session.ws_connect(url, heartbeat=15,
+                                                  max_msg_size=2 * 1024 * 1024) as ws:
                         capabilities = ["telemetry", "compute", "vision"]
                         if self.files_service:
                             capabilities.append("files")
@@ -290,24 +287,13 @@ class RiftAgent:
                                         await self._handle_files_request(ws, data)
                                     elif kind == "control_request":
                                         client_id = str(data.get("clientId", ""))[:80]
-                                        attempt = self.control_failures
-                                        now = time.monotonic()
-                                        blocked = now < attempt["blocked_until"]
-                                        pin_ok = not blocked and secrets.compare_digest(str(data.get("pin", "")), self.control_pin)
                                         available = self.control_client_id in (None, client_id)
-                                        ok = pin_ok and available
+                                        ok = bool(client_id) and available
                                         if ok:
-                                            attempt.update({"count": 0, "blocked_until": 0.0})
                                             self.control_client_id = client_id
-                                            logger.info("[CONTROL] Screen control enabled for %s", client_id)
-                                        elif not blocked and not pin_ok:
-                                            attempt["count"] += 1
-                                            if attempt["count"] >= 5:
-                                                attempt.update({"count": 0, "blocked_until": now + 60.0})
-                                                logger.warning("[CONTROL] Pairing attempts temporarily locked for %s", client_id)
-                                        message = ("Too many PIN attempts. Wait one minute and try again." if blocked else
-                                            "Connected to laptop screen. Tap the screen to click; use the keyboard field to type." if ok else
-                                            "Pairing PIN is incorrect or another phone is controlling the laptop.")
+                                            logger.info("[CONTROL] Computer claimed by %s", client_id)
+                                        message = ("Computer claimed. You can control it until you drop it." if ok else
+                                            "Another phone currently controls this computer.")
                                         await ws.send_json({"type": "control_status", "clientId": client_id, "ok": ok,
                                             "message": message})
                                     elif kind == "control_stop":
@@ -684,14 +670,27 @@ class RiftAgent:
         token_topic = f"rift/{job_id}/tokens"
         logger.info(f"[LLM] Streaming {self.config.default_llm_model} → {token_topic}")
         token_count = 0
-        for token in self.llm_worker.stream_generate(prompt):
+        try:
+            for token in self.llm_worker.stream_generate(prompt):
+                self.mqtt.publish(token_topic, {
+                    "deviceId":  self.config.device_id,
+                    "jobId":     job_id,
+                    "token":     token,
+                    "timestamp": time.time()
+                })
+                token_count += 1
+        except Exception as error:
+            logger.exception("[LLM] Generation failed for job %s", job_id)
             self.mqtt.publish(token_topic, {
+                "deviceId":  self.config.device_id,
                 "jobId":     job_id,
-                "token":     token,
+                "error":     str(error),
+                "done":      True,
                 "timestamp": time.time()
             })
-            token_count += 1
+            return
         self.mqtt.publish(token_topic, {
+            "deviceId":  self.config.device_id,
             "jobId":     job_id,
             "done":      True,
             "timestamp": time.time()

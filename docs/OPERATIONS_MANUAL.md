@@ -38,7 +38,7 @@ Open PowerShell on your Windows machine and run:
 python c:\Users\Admin\Desktop\lan-share\agent\rift_agent.py
 ```
 - Install the agent dependencies first when setting up a fresh Python environment: `python -m pip install -r c:\Users\Admin\Desktop\lan-share\agent\requirements.txt`.
-- The agent prints a six-digit Screen Share pairing PIN at startup. Enter it in the phone's Screen Share tab to stream the desktop and send mouse/keyboard input. Stop the session from the phone when finished. The agent must run in the logged-in interactive Windows session; it cannot operate the lock screen.
+- In the phone's Screen Share tab, select an available computer and tap **Pick up** to stream the desktop and send mouse/keyboard input. Only one phone can hold a computer at a time; tap **Drop** when finished. The agent must run in the logged-in interactive Windows session; it cannot operate the lock screen.
 - The agent immediately connects outbound to AWS IoT Core.
 - It begins publishing real-time telemetry (CPU usage %, RAM available, battery state) to `rift/rift-win-worker-01/status`.
 - It listens for signed commands on `rift/rift-win-worker-01/cmd`.
