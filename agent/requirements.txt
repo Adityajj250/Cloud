@@ -1,0 +1,11 @@
+# R.I.F.T. Windows Agent Requirements (CPU-Optimized)
+awsiotsdk>=1.22.0
+boto3>=1.34.0
+psutil>=5.9.0
+numpy>=1.26.0
+pillow>=10.2.0
+requests>=2.31.0
+cryptography>=42.0.0
+onnxruntime>=1.17.0
+opencv-python-headless>=4.9.0
+aiohttp>=3.9.0

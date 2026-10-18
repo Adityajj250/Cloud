@@ -1,0 +1,1555 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+<title>R.I.F.T. Command Center</title>
+<meta name="theme-color" content="#0f172a"/>
+<link rel="manifest" href="manifest.json"/>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body{background:#0b0f19;color:#e2e8f0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;}
+  .tab-active{color:#38bdf8;border-bottom:2px solid #38bdf8;}
+  .tab-inactive{color:#64748b;}
+  .pulse{animation:pulse 2s ease-in-out infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.4;}}
+  #log-box{font-family:monospace;font-size:11px;}
+  .msg-item{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;
+    border-radius:8px;background:#1e293b;border:1px solid #334155;margin-bottom:6px;}
+  body.laptop-view #mobile-header,body.laptop-view #mobile-tabs,body.laptop-view #mobile-main{display:none;}
+  body.screen-share-open #mobile-header,body.screen-share-open #mobile-tabs,body.screen-share-open #mobile-main>section:not(#s-screen){display:none!important;}
+  body.screen-share-open{overflow:hidden;}
+  body.screen-share-open #screen-fullscreen-enter-btn{display:none!important;}
+  .screen-fullscreen{position:fixed!important;inset:0!important;z-index:100!important;overflow-y:auto!important;padding:env(safe-area-inset-top) 10px env(safe-area-inset-bottom)!important;border-radius:0!important;}
+  .screen-fullscreen #remote-screen-wrap{position:fixed!important;inset:0!important;z-index:0!important;width:100vw!important;height:100dvh!important;max-height:none!important;border-radius:0!important;display:flex;align-items:center;justify-content:center;}
+  .screen-fullscreen #remote-screen{width:100vw!important;height:100dvh!important;max-height:none!important;object-fit:contain!important;}
+  #screen-share-toolbar{position:fixed;inset:0;z-index:120;pointer-events:none;}
+  #screen-share-toolbar button{position:absolute;top:max(8px,env(safe-area-inset-top));pointer-events:auto;background:rgba(15,23,42,.10);border:1px solid rgba(226,232,240,.22);color:rgba(255,255,255,.78);backdrop-filter:none;box-shadow:none;padding:7px 10px;border-radius:10px;font-size:12px;}
+  #screen-fullscreen-exit-btn{left:max(8px,env(safe-area-inset-left));}
+  #screen-keyboard-toggle{right:max(8px,env(safe-area-inset-right));}
+  body.screen-share-open #screen-share-toolbar{background:transparent!important;backdrop-filter:none!important;padding:0!important;border:0!important;border-radius:0!important;}
+  body.screen-share-open #screen-share-toolbar>div:first-child{display:none!important;}
+  body.screen-share-open #screen-share-toolbar>div:last-child{display:contents;}
+  body.screen-share-open #screen-share-toolbar button{background:rgba(15,23,42,.06);border-color:rgba(255,255,255,.16);color:rgba(255,255,255,.58);}
+  .screen-fullscreen #screen-controls-body{position:fixed;left:8px;right:8px;bottom:calc(env(safe-area-inset-bottom, 0px) + 8px);z-index:5;max-height:55dvh;overflow-y:auto;background:rgba(2,6,23,.92);backdrop-filter:blur(10px);padding:8px;border:1px solid #334155;border-radius:14px;}
+  .screen-fullscreen #screen-controls-body{background:rgba(2,6,23,.28);border-color:rgba(148,163,184,.35);}
+  .screen-fullscreen #screen-controls-body>div{background:rgba(15,23,42,.34);border-color:rgba(148,163,184,.36);backdrop-filter:blur(2px);}
+  .screen-fullscreen .remote-key{background:rgba(30,41,59,.52);border:1px solid rgba(203,213,225,.4);backdrop-filter:blur(2px);}
+  .screen-fullscreen .remote-key:active{background:rgba(2,132,199,.88);}
+  .screen-fullscreen #remote-text{background:rgba(2,6,23,.72);}
+  .screen-fullscreen #screen-controls-body{left:0;right:0;bottom:0;max-height:54dvh;padding:5px max(5px,env(safe-area-inset-right)) max(5px,env(safe-area-inset-bottom)) max(5px,env(safe-area-inset-left));border:0;border-radius:0;background:transparent;backdrop-filter:none;}
+  .screen-fullscreen #keyboard-controls{padding:0;background:transparent;border:0;box-shadow:none;}
+  .screen-fullscreen #keyboard-controls>div:first-child,
+  .screen-fullscreen #shortcut-row,
+  .screen-fullscreen #keyboard-controls>div:last-child{display:none!important;}
+  .screen-fullscreen #virtual-keyboard:not(.hidden){display:flex!important;flex-direction:column;gap:5px;width:100%;}
+  .screen-fullscreen #virtual-keyboard.hidden{display:none!important;}
+  .screen-fullscreen .keyboard-row{gap:5px;width:100%;}
+  .screen-fullscreen .remote-key{flex:1;min-width:0;height:clamp(27px,7dvh,42px);padding:2px 4px;border-radius:8px;color:rgba(255,255,255,.82);font-size:clamp(12px,2.3vw,19px);font-weight:600;background:rgba(15,23,42,.07);border-color:rgba(255,255,255,.20);text-shadow:0 1px 3px #000;backdrop-filter:none;touch-action:none;user-select:none;-webkit-user-select:none;}
+  .screen-fullscreen .remote-key:active{background:rgba(2,132,199,.28);}
+  @media (orientation:portrait){
+    .screen-fullscreen{width:100dvh!important;height:100vw!important;min-height:100vw!important;inset:0 auto auto 100vw!important;transform:rotate(90deg);transform-origin:top left;overflow:hidden!important;}
+    body.screen-share-open #screen-share-toolbar{width:100dvh;height:100vw;inset:0 auto auto 100vw;transform:rotate(90deg);transform-origin:top left;}
+    .screen-fullscreen #remote-screen-wrap{width:100dvh!important;height:100vw!important;}
+    .screen-fullscreen #remote-screen{width:100dvh!important;height:100vw!important;}
+    body.screen-share-open #screen-share-toolbar button{top:4px;}
+    .screen-fullscreen #screen-controls-body{left:4px;right:4px;bottom:4px;max-height:54vw;}
+    .screen-fullscreen .remote-key{height:clamp(24px,5.5vw,36px);}
+  }
+  .keyboard-row{display:flex;gap:4px;justify-content:center;}
+
+  #remote-cursor{position:absolute;left:0;top:0;width:0;height:0;pointer-events:none;z-index:3;will-change:transform;display:none;}
+  #remote-cursor .halo{position:absolute;left:-15px;top:-15px;width:30px;height:30px;border-radius:50%;border:2px solid rgba(56,189,248,.95);background:rgba(56,189,248,.20);box-shadow:0 0 10px rgba(56,189,248,.7);animation:cursorPulse 1.4s ease-out infinite;}
+  #remote-cursor svg{position:absolute;left:0;top:0;overflow:visible;filter:drop-shadow(0 1px 2px rgba(0,0,0,.8));}
+  #remote-cursor.stale{opacity:.35;}
+  #remote-cursor.stale .halo{animation:none;border-color:rgba(248,113,113,.9);background:rgba(248,113,113,.2);}
+  #remote-cursor-badge{position:absolute;left:50%;top:6px;transform:translateX(-50%);z-index:4;pointer-events:none;display:none;font:600 11px ui-monospace,Menlo,monospace;color:#e2e8f0;background:rgba(2,6,23,.62);padding:2px 8px;border-radius:999px;white-space:nowrap;}
+  @keyframes cursorPulse{0%{transform:scale(.6);opacity:1}100%{transform:scale(1.25);opacity:.35}}
+</style>
+</head>
+<body class="pb-20">
+
+<!-- Header -->
+<header id="mobile-header" class="bg-slate-900 border-b border-slate-800 sticky top-0 z-50 px-4 py-3 flex items-center justify-between">
+  <div class="flex items-center gap-2">
+    <div class="w-8 h-8 rounded-lg bg-sky-500/20 border border-sky-500/50 flex items-center justify-center font-bold text-sky-400 text-sm">R</div>
+    <div>
+      <div class="text-sm font-bold text-slate-100 tracking-wide">R.I.F.T. COMMAND</div>
+      <div class="text-[10px] text-slate-500">ap-southeast-2</div>
+    </div>
+  </div>
+  <div class="flex items-center gap-2 text-[10px] font-mono">
+    <span id="ws-badge" class="px-2 py-0.5 rounded bg-yellow-500/10 text-yellow-400 border border-yellow-500/30">WS: connecting…</span>
+    <span id="laptop-badge" class="px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">Laptop: –</span>
+  </div>
+</header>
+
+<!-- Tabs -->
+<div id="mobile-tabs" class="flex overflow-x-auto border-b border-slate-800 bg-slate-900/80 sticky top-14 z-40">
+  <button onclick="tab('nodes')"  id="t-nodes"  class="min-w-[72px] flex-1 py-2.5 text-xs font-semibold tab-active">Devices</button>
+  <button onclick="tab('jobs')"   id="t-jobs"   class="min-w-[72px] flex-1 py-2.5 text-xs font-semibold tab-inactive">Compute</button>
+  <button onclick="tab('vision')" id="t-vision" class="min-w-[64px] flex-1 py-2.5 text-xs font-semibold tab-inactive">Vision</button>
+  <button onclick="tab('llm')"    id="t-llm"    class="min-w-[52px] flex-1 py-2.5 text-xs font-semibold tab-inactive">LLM</button>
+  <button onclick="tab('screen')" id="t-screen" class="min-w-[92px] flex-1 py-2.5 text-xs font-semibold tab-inactive">Screen</button>
+  <button onclick="tab('files')"  id="t-files"  class="min-w-[62px] flex-1 py-2.5 text-xs font-semibold tab-inactive">Files</button>
+</div>
+
+<section id="laptop-dashboard" class="hidden min-h-screen bg-slate-950 text-slate-100">
+  <header class="sticky top-0 z-20 bg-slate-900 border-b border-slate-800 px-6 py-4 flex items-center justify-between">
+    <div><div class="text-lg font-bold">R.I.F.T. Laptop Console</div><div class="text-xs text-slate-400"><span id="laptop-ws-state">Connecting…</span><span id="laptop-telemetry" class="ml-3"></span></div><div class="text-[10px] text-slate-500 mt-1">Fleet status, connected phones, and which phone currently controls each computer.</div></div>
+    <div class="text-right"><div class="rounded-xl bg-sky-500/10 border border-sky-500/30 px-4 py-2"><span id="mobile-count" class="text-2xl font-bold text-sky-300">0</span><span class="text-xs text-slate-400 ml-2">phones connected</span></div><div id="laptop-fleet-count" class="text-[10px] text-slate-500 mt-1">0 computers online</div></div>
+  </header>
+  <main class="p-6 grid grid-cols-1 xl:grid-cols-2 gap-5 max-w-7xl mx-auto">
+    <section class="bg-slate-900 border border-slate-800 rounded-xl p-5">
+      <div class="flex justify-between items-center mb-3"><h2 class="font-semibold">Connected mobile devices</h2><button onclick="pingAllMobiles()" class="text-xs bg-sky-600 px-3 py-2 rounded-lg">Ping all</button></div>
+      <div id="mobile-clients" class="space-y-2 text-sm"><div class="text-slate-500">Waiting for phones to connect…</div></div>
+      <div id="laptop-ping-log" class="mt-4 text-xs font-mono text-slate-400"></div>
+    </section>
+    <section class="xl:col-span-2 bg-slate-900 border border-slate-800 rounded-xl p-5">
+      <h2 class="font-semibold mb-3">Connected computers</h2>
+      <div id="laptop-devices" class="grid grid-cols-1 md:grid-cols-2 gap-3"><div class="text-slate-500">Waiting for agents to connect…</div></div>
+    </section>
+    <section class="bg-slate-900 border border-slate-800 rounded-xl p-5">
+      <h2 class="font-semibold mb-3">Phone camera preview</h2>
+      <div class="aspect-video bg-black rounded-lg overflow-hidden flex items-center justify-center"><img id="laptop-camera" class="max-h-full max-w-full object-contain hidden"/><div id="camera-empty" class="text-slate-500 text-sm">Start the phone camera from its Vision tab.</div></div>
+      <div id="camera-caption" class="text-xs text-slate-400 mt-2"></div>
+    </section>
+    <section class="bg-slate-900 border border-slate-800 rounded-xl p-5">
+      <h2 class="font-semibold mb-2">Phone screen control</h2>
+      <p id="laptop-control-state" class="text-sm text-slate-400">No phone is controlling the laptop. The pairing PIN is shown in the Windows agent terminal.</p>
+    </section>
+    <section class="xl:col-span-2 bg-slate-900 border border-slate-800 rounded-xl p-5">
+      <div class="flex items-center justify-between gap-3"><div><h2 class="font-semibold">Shared folders and incoming files</h2><p class="mt-1 text-xs text-slate-400">The agent creates a common folder and inbox in its Windows user profile.</p></div><span id="laptop-files-service-state" class="rounded-full bg-slate-800 px-2.5 py-1 text-[10px] text-slate-400">Select a computer</span></div>
+      <div class="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3"><div class="rounded-lg border border-slate-800 bg-slate-950 p-3"><div class="text-xs font-semibold">Selected computer</div><div id="laptop-share-device" class="mt-1 text-xs text-slate-400">Select a computer from the fleet.</div><div class="mt-2 text-[10px] text-slate-500">Browse: RIFT Shared · Phone uploads: RIFT Inbox · Uploads go to Quarantine for risky file types.</div></div><div class="rounded-lg border border-slate-800 bg-slate-950 p-3"><div class="text-xs font-semibold">Recent phone uploads</div><div id="laptop-files-log" class="mt-2 space-y-1 text-[11px] text-slate-500">No uploads reported in this session.</div><div class="mt-2 text-[10px] text-slate-500">Executable and script files are quarantined automatically; they are never opened by R.I.F.T.</div></div></div>
+    </section>
+    <section class="xl:col-span-2 bg-slate-900 border border-slate-800 rounded-xl p-5">
+      <div class="flex justify-between items-center mb-3"><h2 class="font-semibold">Compute jobs and results</h2><button onclick="loadJobs()" class="text-xs text-sky-400">Refresh</button></div>
+      <div id="laptop-jobs" class="space-y-2 text-sm"><div class="text-slate-500">No jobs yet.</div></div>
+    </section>
+  </main>
+</section>
+
+<main id="mobile-main" class="p-4 space-y-3 max-w-lg mx-auto">
+
+<!-- ════════════════ NODES TAB ════════════════ -->
+<section id="s-nodes">
+
+  <div class="flex items-center justify-between"><div><h2 class="font-semibold text-sm">Your computers</h2><span id="fleet-count" class="text-[10px] text-slate-400">0 online</span></div><button onclick="pingLaptopServer()" id="ping-server-btn" class="text-[10px] bg-slate-700 text-white px-3 py-2 rounded-lg">Ping hub</button></div>
+  <div id="fleet-devices" class="space-y-3"><div class="bg-slate-900 border border-slate-800 rounded-xl p-4 text-xs text-slate-500">Waiting for computers to connect…</div></div>
+
+  <div id="device-detail" class="hidden rounded-xl border border-sky-500/30 bg-slate-900 p-4 space-y-3" aria-live="polite"></div>
+
+  <div id="worker-ping-status" class="text-xs text-slate-500">Worker ping has not been checked yet.</div>
+
+  <!-- Ping log -->
+  <div id="ping-log-box" class="hidden bg-slate-950 border border-slate-800 rounded-xl p-3 space-y-1.5 text-[11px] font-mono">
+    <div class="text-slate-500 mb-2">──── Ping trace ────</div>
+    <div id="ping-steps"></div>
+  </div>
+
+  <!-- Live event log -->
+  <div class="bg-slate-900 border border-slate-800 rounded-xl p-3">
+    <div class="flex justify-between text-xs mb-2">
+      <span class="font-semibold text-slate-300">Live Log</span>
+      <button onclick="document.getElementById('log-box').innerHTML=''" class="text-slate-500 hover:text-slate-300">Clear</button>
+    </div>
+    <div id="log-box" class="h-36 overflow-y-auto space-y-0.5 text-slate-400"></div>
+  </div>
+
+</section>
+
+<!-- ════════════════ FILES TAB ════════════════ -->
+<section id="s-files" class="hidden space-y-3">
+  <div class="rounded-xl border border-slate-800 bg-slate-900 p-4">
+    <div class="flex items-start justify-between gap-3"><div><h2 class="font-semibold">Files</h2><p class="mt-1 text-xs text-slate-400">Browse an approved folder or send files to a computer that is online.</p></div><span id="files-device-state" class="shrink-0 rounded-full bg-slate-800 px-2.5 py-1 text-[10px] text-slate-400">Choose a computer</span></div>
+    <label class="mt-3 block text-[11px] text-slate-400" for="files-device-select">Target computer</label>
+    <select id="files-device-select" onchange="selectDevice(this.value); updateFilesDeviceState()" class="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm"><option value="">No computers connected</option></select>
+    <div id="files-status" class="mt-3 rounded-lg border border-slate-800 bg-slate-950 p-3 text-[11px] text-slate-300">Pair with the selected computer in Screen Share using its PIN before browsing or transferring files.</div>
+  </div>
+  <div class="rounded-xl border border-slate-800 bg-slate-900 p-4 space-y-3">
+    <div class="flex items-center justify-between"><h3 class="text-sm font-semibold">Browse computer</h3><button onclick="loadFiles()" class="rounded-lg bg-slate-800 px-3 py-2 text-[11px] text-sky-300">Refresh</button></div>
+    <div class="flex gap-2"><button onclick="loadFiles('shared')" id="files-shared-btn" class="rounded-lg bg-sky-700 px-3 py-2 text-[11px]">RIFT Shared</button><button onclick="loadFiles('inbox')" id="files-inbox-btn" class="rounded-lg bg-slate-800 px-3 py-2 text-[11px]">RIFT Inbox</button></div>
+    <div id="files-breadcrumb" class="flex items-center gap-2 text-[11px] text-slate-500"><button onclick="loadFiles(filesScope,filesRootPathId)">Home</button></div>
+    <div class="flex gap-2"><input id="files-search" type="search" oninput="renderFilesEntries()" placeholder="Search files" class="min-w-0 flex-1 rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-xs"/><select id="files-sort" onchange="renderFilesEntries()" class="rounded-lg border border-slate-800 bg-slate-950 px-2 py-2 text-xs"><option value="name">Name</option><option value="modified">Modified</option><option value="size">Size</option></select></div>
+    <div id="files-entries" class="max-h-[45vh] space-y-1 overflow-y-auto rounded-lg border border-slate-800 bg-slate-950 p-2"><div class="p-4 text-center text-xs text-slate-500">Choose a computer and tap Refresh.</div></div>
+  </div>
+  <div class="rounded-xl border border-slate-800 bg-slate-900 p-4">
+    <div class="flex items-center justify-between gap-3"><div><h3 class="text-sm font-semibold">Send to computer</h3><p class="mt-1 text-[11px] text-slate-400">Uploads go to the selected online computer’s RIFT Inbox.</p></div><div class="flex gap-2"><label class="cursor-pointer rounded-lg bg-slate-800 px-3 py-2 text-[11px]">Gallery<input id="files-gallery-input" type="file" accept="image/*" multiple class="hidden" onchange="uploadSelectedFiles(this.files);this.value=''"></label><label class="cursor-pointer rounded-lg bg-slate-800 px-3 py-2 text-[11px]">Camera<input id="files-camera-input" type="file" accept="image/*" capture="environment" class="hidden" onchange="uploadSelectedFiles(this.files);this.value=''"></label><label class="cursor-pointer rounded-lg bg-sky-700 px-3 py-2 text-[11px]">Choose files<input id="files-input" type="file" multiple class="hidden" onchange="uploadSelectedFiles(this.files);this.value=''"></label></div></div>
+    <div id="files-transfer-queue" class="mt-3 space-y-2"><div data-empty-queue class="rounded-lg bg-slate-950 p-3 text-[11px] text-slate-500">Transfer queue is empty.</div></div>
+  </div>
+  <div id="files-viewer" class="hidden rounded-xl border border-slate-800 bg-slate-900 p-4"><div class="mb-3 flex items-center justify-between"><div id="files-viewer-title" class="truncate text-sm font-semibold">File preview</div><button onclick="closeFileViewer()" class="rounded bg-slate-800 px-3 py-1.5 text-xs">Close</button></div><video id="files-video" controls playsinline class="hidden max-h-[65vh] w-full bg-black"></video><img id="files-image" class="hidden max-h-[65vh] max-w-full mx-auto object-contain"/><iframe id="files-document" title="Document preview" class="hidden h-[65vh] w-full rounded bg-white"></iframe><div id="files-viewer-error" class="hidden text-xs text-amber-300"></div><div class="mt-2 flex justify-end"><select id="files-video-speed" onchange="document.getElementById('files-video').playbackRate=Number(this.value)" class="rounded bg-slate-950 px-2 py-1 text-[10px]"><option value="1">1×</option><option value="1.25">1.25×</option><option value="1.5">1.5×</option><option value="2">2×</option></select></div></div>
+</section>
+
+<!-- ════════════════ COMPUTE TAB ════════════════ -->
+<section id="s-jobs" class="hidden space-y-3">
+
+  <!-- Submit form -->
+  <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3">
+    <div class="text-xs font-semibold text-slate-300">Submit Federated Job</div>
+
+    <div>
+      <label class="text-[11px] text-slate-400 mb-1 block">Job Type</label>
+      <select id="job-type" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs text-slate-200">
+        <option value="monte_carlo">Monte Carlo Simulation (seed-sliced)</option>
+        <option value="matrix_multiply">Block Matrix Multiplication (row-sliced)</option>
+        <option value="image_tile">Distributed Image Processing (tile-sliced)</option>
+      </select>
+    </div>
+
+    <div class="rounded-lg border border-slate-800 bg-slate-950 px-3 py-2">
+      <div class="text-[11px] text-slate-400">Worker target</div>
+      <div class="text-xs text-slate-200">Any online computer · shared AWS queue</div>
+      <div class="text-[10px] text-slate-500 mt-1">Online agents compete for chunks. Pinning a job to one computer is not implemented yet.</div>
+    </div>
+
+    <div class="grid grid-cols-2 gap-2">
+      <div>
+        <label class="text-[11px] text-slate-400 mb-1 block">Chunks</label>
+        <input id="job-chunks" type="number" value="4" min="1" max="16"
+          class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs font-mono text-slate-200"/>
+      </div>
+      <div>
+        <label class="text-[11px] text-slate-400 mb-1 block">Samples</label>
+        <input id="job-samples" type="number" value="200000"
+          class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs font-mono text-slate-200"/>
+      </div>
+    </div>
+
+    <button onclick="submitJob()" class="w-full bg-sky-600 hover:bg-sky-500 text-white font-bold py-2.5 rounded-lg text-xs transition">
+      Split &amp; Queue to AWS SQS →
+    </button>
+  </div>
+
+  <!-- Job queue -->
+  <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
+    <div class="flex items-center justify-between mb-3">
+      <span class="text-xs font-semibold text-slate-300">Job Queue (DynamoDB)</span>
+      <button onclick="loadJobs()" class="text-[11px] text-sky-400 hover:text-sky-300">↻ Refresh</button>
+    </div>
+    <div id="jobs-list" class="space-y-2 text-xs">
+      <div class="text-slate-500 text-center py-4">No jobs yet. Submit one above.</div>
+    </div>
+  </div>
+
+</section>
+
+<!-- ════════════════ VISION TAB ════════════════ -->
+<section id="s-vision" class="hidden space-y-3">
+
+  <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 text-[11px] text-slate-400 space-y-1">
+    <div class="text-sky-400 font-semibold text-xs">How it works</div>
+    <div>1. Your <strong class="text-slate-200">phone camera</strong> captures frames here.</div>
+    <div>2. Frames are sent via HTTPS → your <strong class="text-slate-200">laptop's</strong> OpenCV detector.</div>
+    <div>3. Detections are returned and overlaid on the video below.</div>
+    <div class="text-yellow-400">⚠ Requires HTTPS – which is why this page must be opened as https://…</div>
+  </div>
+
+  <!-- Video stream area -->
+  <div class="relative bg-black rounded-xl overflow-hidden aspect-[4/3]">
+    <video id="cam-video" autoplay playsinline muted class="w-full h-full object-cover hidden"></video>
+    <canvas id="cam-canvas" class="absolute inset-0 w-full h-full hidden"></canvas>
+    <div id="cam-placeholder" class="flex items-center justify-center h-full">
+      <button onclick="startCamera()" class="bg-sky-600 hover:bg-sky-500 text-white font-bold px-5 py-2.5 rounded-xl text-sm transition">
+        📷 Start Phone Camera
+      </button>
+    </div>
+  </div>
+
+  <div id="vision-stats" class="hidden grid grid-cols-3 gap-2 text-center text-[10px]">
+    <div class="bg-slate-900 border border-slate-800 rounded-lg p-2">
+      <div class="text-slate-500">DETECTIONS</div>
+      <div id="det-count" class="font-mono font-bold text-emerald-400">0</div>
+    </div>
+    <div class="bg-slate-900 border border-slate-800 rounded-lg p-2">
+      <div class="text-slate-500">LATENCY</div>
+      <div id="det-ms" class="font-mono font-bold text-slate-200">–</div>
+    </div>
+    <div class="bg-slate-900 border border-slate-800 rounded-lg p-2">
+      <div class="text-slate-500">WORKER</div>
+      <div class="font-mono font-bold text-slate-200">CPU OpenCV</div>
+    </div>
+  </div>
+
+  <button id="cam-stop-btn" onclick="stopCamera()" class="hidden w-full border border-red-500/40 text-red-400 text-xs font-semibold py-2 rounded-lg hover:bg-red-500/10 transition">
+    ■ Stop Camera
+  </button>
+
+</section>
+
+<!-- ════════════════ LLM TAB ════════════════ -->
+<section id="s-llm" class="hidden space-y-3">
+
+  <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 text-[11px] text-slate-400">
+    <span class="text-sky-400 font-semibold">qwen2.5:3b</span> runs on your laptop CPU via Ollama.
+    The completed response is returned after generation. Nothing is stored on your phone.
+  </div>
+
+  <div id="chat-box" class="bg-slate-950 border border-slate-800 rounded-xl p-3 h-72 overflow-y-auto space-y-3 text-xs font-mono">
+    <div class="text-slate-600 text-center text-[10px]">No conversation yet. Type a prompt below.</div>
+  </div>
+
+  <div class="flex gap-2">
+    <input id="prompt-input" type="text" placeholder="Ask your laptop anything…"
+      class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-slate-100 focus:outline-none focus:border-sky-500"
+      onkeydown="if(event.key==='Enter')sendPrompt()"/>
+    <button onclick="sendPrompt()" id="llm-btn" class="bg-sky-600 hover:bg-sky-500 text-white font-bold px-4 py-2.5 rounded-xl text-xs transition">Send</button>
+  </div>
+
+</section>
+
+<!-- ════════════════ SCREEN SHARE TAB ════════════════ -->
+<section id="s-screen" class="hidden space-y-3">
+  <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3">
+    <div><div class="font-semibold text-slate-100">View and control a computer</div><p class="text-xs text-slate-400 mt-1">Select a computer, then enter the six-digit Screen Share PIN printed by its agent. Each computer can have one controlling phone.</p></div>
+    <div id="screen-files-entry" class="rounded-lg border border-slate-800 bg-slate-950 p-3 text-[11px] text-slate-500">Select a computer with the Files capability to send a document to its RIFT Inbox.</div>
+    <select id="control-device-select" onchange="selectDevice(this.value)" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm"><option value="">No computers connected</option></select>
+    <div class="flex gap-2"><input id="control-pin" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="6-digit PIN" class="min-w-0 flex-1 bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm font-mono tracking-widest"/><button id="control-connect" onclick="requestLaptopControl()" class="bg-sky-600 px-4 py-2 rounded-lg text-sm font-semibold">Connect</button><button id="control-stop" onclick="stopLaptopControl()" class="hidden bg-red-700 px-3 py-2 rounded-lg text-sm">Stop</button></div>
+    <div id="control-status" class="text-xs text-slate-400">Not connected. The laptop agent must be running.</div>
+  </div>
+  <div id="screen-control-panel" class="hidden bg-slate-950 border border-slate-800 rounded-xl p-2 space-y-2">
+    <div class="flex items-center justify-between px-1"><div class="text-[11px] text-slate-300">HD up to 720p · live cursor</div><button id="screen-fullscreen-enter-btn" onclick="toggleScreenFullscreen()" class="bg-slate-800 px-3 py-1.5 rounded-lg text-xs">⛶ Full screen</button></div>
+    <div id="remote-screen-wrap" class="relative w-full bg-black rounded-lg overflow-hidden touch-none select-none"><img id="remote-screen" alt="Live laptop screen" class="block w-full h-auto max-h-[52vh] object-contain mx-auto" draggable="false"/><div id="remote-cursor"><div class="halo"></div><svg width="22" height="30" viewBox="0 0 22 30"><polygon points="1,1 1,22 6.2,17.2 10,26.5 13.4,25 9.6,15.9 16.5,15.9" fill="#fff" stroke="#000" stroke-width="1.6" stroke-linejoin="round"/></svg></div><div id="remote-cursor-badge">Cursor: waiting…</div></div>
+    <div id="screen-controls-body" class="space-y-2">
+    <div id="touchpad-controls" class="bg-slate-900 border border-slate-800 rounded-xl p-2 space-y-2">
+      <div class="flex items-center justify-between px-1"><div class="text-xs font-semibold">Touchpad</div><button id="drag-mode-btn" onclick="toggleDragMode()" class="bg-slate-800 px-2.5 py-1 rounded text-[11px]">Drag: off</button></div>
+      <div id="remote-touchpad" class="h-28 rounded-lg bg-slate-800/80 border border-slate-700 touch-none select-none flex items-center justify-center text-xs text-slate-400">Swipe to move the laptop pointer · tap to click</div>
+      <div class="flex gap-2"><button onclick="touchpadClick('left')" class="flex-1 bg-slate-700 py-2 rounded-lg text-xs">Left click</button><button onclick="touchpadClick('right')" class="flex-1 bg-slate-700 py-2 rounded-lg text-xs">Right click</button></div>
+    </div>
+    <div id="keyboard-controls" class="bg-slate-900 border border-slate-800 rounded-xl p-2 space-y-2">
+      <div class="flex items-center justify-between"><div class="text-xs font-semibold">Virtual keyboard</div><button id="keyboard-toggle" onclick="toggleVirtualKeyboard()" class="bg-slate-800 px-3 py-1 rounded text-[11px]">Show keyboard</button></div>
+      <div id="shortcut-row" class="flex gap-1 overflow-x-auto pb-1">
+        <button onclick="sendRemoteShortcut('ctrl','c')" class="remote-key">Ctrl+C</button><button onclick="sendRemoteShortcut('ctrl','v')" class="remote-key">Ctrl+V</button><button onclick="sendRemoteShortcut('ctrl','a')" class="remote-key">Ctrl+A</button><button onclick="sendRemoteShortcut('ctrl','z')" class="remote-key">Ctrl+Z</button><button onclick="sendRemoteShortcut('alt','tab')" class="remote-key">Alt+Tab</button>
+      </div>
+      <div id="virtual-keyboard" class="hidden space-y-1"></div>
+      <div><input id="remote-text" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Type directly on laptop…" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm" onkeydown="if(event.key==='Enter'){event.preventDefault();sendRemoteKey('enter')}"/><div class="text-[10px] text-slate-500 mt-1">Phone keyboard input is sent immediately to the laptop.</div></div>
+    </div>
+    </div>
+  </div>
+</section>
+
+</main>
+<div id="screen-share-toolbar" class="hidden"><div>HD up to 720p · live cursor</div><div><button id="screen-fullscreen-exit-btn" onclick="toggleScreenFullscreen()">× Exit full screen</button><button id="screen-keyboard-toggle" onclick="toggleKeyboardOverlay()">Keyboard</button></div></div>
+<script>
+// ─── Server Base URL ────────────────────────────────────────────────────────
+// Dynamically uses whatever host served this page (works for both laptop & phone)
+const BASE  = window.location.origin;   // Public HTTPS tunnel URL or local origin
+const WS    = BASE.replace('https://', 'wss://').replace('http://', 'ws://') + '/ws';
+const VIEW  = new URLSearchParams(location.search).get('view') || (innerWidth >= 900 ? 'laptop' : 'mobile');
+const CLIENT_ID = localStorage.getItem('rift-client-id') || (() => { const id = 'mobile-' + crypto.randomUUID(); localStorage.setItem('rift-client-id', id); return id; })();
+const CLIENT_NAME = localStorage.getItem('rift-client-name') || ('Mobile ' + CLIENT_ID.slice(-4));
+let fleetDevices = new Map();
+let selectedDeviceId = localStorage.getItem('rift-selected-device') || '';
+let controlDeviceId = '';
+let pingDeviceId = '';
+let filesScope = 'shared';
+let filesRootPathId = 'shared-root';
+let filesCurrentPathId = filesRootPathId;
+let filesPathStack = [];
+let filesEntries = [];
+let filesNextOffset = null;
+let filesLoadedDeviceId = '';
+let filesWakeLock = null;
+const filesAccessTokens = new Map();
+
+let ws = null;
+let camStream = null;
+let camFrameTimer = null;
+let pendingWorkerPingId = null;
+let lastWorkerPongId = null;
+let workerPingTimer = null;
+let controlActive = false;
+let screenPointerStart = null;
+let lastPointerSend = 0;
+let remoteScreenWidth = 1;
+let remoteScreenHeight = 1;
+let virtualPointer = {x:0.5,y:0.5};
+let padGesture = null;
+let dragMode = false;
+let remoteCursor = {x:0.5,y:0.5,mon:null,seen:0};
+let remoteFrameMon = null;
+let virtualShift = false;
+
+// ─── WebSocket ──────────────────────────────────────────────────────────────
+function connectWS() {
+  logMsg('Connecting to R.I.F.T. laptop server…');
+  ws = new WebSocket(WS);
+
+  ws.onopen = () => {
+    setWsBadge(true);
+    logMsg('✓ WebSocket connected to laptop');
+    ws.send(JSON.stringify({type:'identify', role:VIEW, clientId:CLIENT_ID, name:CLIENT_NAME}));
+    if (VIEW === 'laptop') loadJobs();
+  };
+
+  ws.onclose = () => {
+    setWsBadge(false);
+    for(const key of [...filesAccessTokens.keys()]) { sessionStorage.removeItem(`rift-files-token:${key}`); filesAccessTokens.delete(key); }
+    if(VIEW === 'mobile' && controlActive) setControlStatus(false, 'Connection lost. Reconnect and enter the PIN again.');
+    logMsg('⚠ WebSocket disconnected – reconnecting in 5s…');
+    setTimeout(connectWS, 5000);
+  };
+
+  ws.onerror = (e) => {
+    logMsg('✗ WebSocket error – check that the server is running');
+  };
+
+  ws.onmessage = (evt) => {
+    try {
+      const m = JSON.parse(evt.data);
+      handleServerMsg(m);
+    } catch(e) {}
+  };
+}
+
+function handleServerMsg(m) {
+  switch(m.type) {
+
+    case 'device_status':
+      updateDeviceCard(m.device, m.online);
+      break;
+
+    case 'device_list':
+      fleetDevices = new Map((m.devices || []).filter(d=>d?.deviceId).map(d=>[d.deviceId, d]));
+      renderDevices([...fleetDevices.values()]);
+      break;
+
+    case 'device_update':
+      if(m.device) {
+        const previous = fleetDevices.get(m.device.deviceId) || {};
+        fleetDevices.set(m.device.deviceId, {...previous, ...m.device});
+        renderDevices([...fleetDevices.values()]);
+      }
+      break;
+
+    case 'mobile_clients':
+      renderMobileClients(m.clients || []);
+      break;
+
+    case 'laptop_pong':
+      if(VIEW === 'mobile') logMsg('Laptop server replied to the phone ping.');
+      else appendLaptopEvent('Laptop server connection confirmed.');
+      break;
+
+    case 'ping_from_laptop':
+      if(ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({type:'mobile_pong', clientId:CLIENT_ID, pingId:m.pingId, name:CLIENT_NAME}));
+      logMsg('Laptop console pinged this phone; pong sent.');
+      break;
+
+    case 'mobile_pong':
+      appendLaptopEvent(`${m.name || m.clientId} replied to ping.`);
+      break;
+
+    case 'phone_camera_frame':
+      showLaptopCameraFrame(m);
+      break;
+
+    case 'control_status':
+      if(VIEW === 'mobile' && m.deviceId && controlDeviceId && m.deviceId !== controlDeviceId) break;
+      if(VIEW === 'mobile' && m.deviceId) {
+        const tokenKey=`${CLIENT_ID}:${m.deviceId}`;
+        if(m.ok && m.filesToken) { filesAccessTokens.set(m.deviceId,m.filesToken); sessionStorage.setItem(`rift-files-token:${tokenKey}`,m.filesToken); }
+        else { filesAccessTokens.delete(m.deviceId); sessionStorage.removeItem(`rift-files-token:${tokenKey}`); }
+      }
+      setControlStatus(!!m.ok, m.message || '');
+      if(VIEW === 'laptop') {
+        const state = document.getElementById('laptop-control-state');
+        if(state) state.textContent = m.ok ? `${m.clientId || 'A phone'} is controlling ${fleetDevices.get(m.deviceId)?.name || m.deviceId}.` : `${fleetDevices.get(m.deviceId)?.name || m.deviceId}: ${m.message || 'No phone is controlling it.'}`;
+      }
+      break;
+
+    case 'control_frame':
+      if(VIEW === 'mobile' && controlActive && (!m.deviceId || m.deviceId === controlDeviceId)) {
+        remoteScreenWidth = Number(m.width) || remoteScreenWidth;
+        remoteScreenHeight = Number(m.height) || remoteScreenHeight;
+        remoteFrameMon = Array.isArray(m.mon) ? m.mon.join(',') : null;
+        applyRemoteCursor(m);
+        const screen = document.getElementById('remote-screen');
+        if(screen) screen.src = 'data:image/jpeg;base64,' + m.frame;
+      }
+      break;
+
+    case 'control_cursor':
+      if(VIEW === 'mobile' && controlActive && (!m.deviceId || m.deviceId === controlDeviceId)) applyRemoteCursor(m);
+      break;
+
+    case 'jobs_update':
+      renderJobs(m.jobs);
+      break;
+
+    case 'job_created':
+      logMsg(`✓ Job ${m.jobId} created (${m.type}, ${m.chunks} chunks → SQS)`);
+      loadJobs();
+      break;
+
+    case 'job_deleted':
+      logMsg(`✓ Deleted job ${m.jobId}`);
+      loadJobs();
+      break;
+
+    case 'files_transfer_complete':
+      if(VIEW === 'laptop') {
+        const logEl=document.getElementById('laptop-files-log');
+        if(logEl) {
+          if(logEl.textContent.includes('No uploads reported')) logEl.textContent='';
+          const row=document.createElement('div');
+          row.textContent=`${new Date().toLocaleTimeString()} · ${m.name} · ${fileSize(m.size)} · ${m.quarantined?'Quarantine review required':m.path||'RIFT Inbox'} · from ${m.clientId}`;
+          logEl.prepend(row);
+        }
+      }
+      break;
+
+    case 'ping_step':
+      if((!m.clientId || m.clientId === CLIENT_ID) && (!pingDeviceId || !m.deviceId || m.deviceId === pingDeviceId)) appendPingStep(m.step);
+      break;
+
+    case 'agent_pong':
+      lastWorkerPongId = m.data.cmdId;
+      if((!m.targetClientId || m.targetClientId === CLIENT_ID) && pendingWorkerPingId && m.data.cmdId === pendingWorkerPingId && (!pingDeviceId || m.deviceId === pingDeviceId)) {
+        clearTimeout(workerPingTimer);
+        const statusEl = document.getElementById('worker-ping-status');
+        if(statusEl) { statusEl.textContent = `Confirmed: ${fleetDevices.get(m.deviceId)?.name || m.data.deviceId} replied pong.`; statusEl.className = 'text-xs text-emerald-400'; }
+        pendingWorkerPingId = null;
+      }
+      const pongTs = new Date().toTimeString().slice(0,8);
+      if((!m.targetClientId || m.targetClientId === CLIENT_ID) && (!pingDeviceId || !m.deviceId || m.deviceId === pingDeviceId)) appendPingStep({
+        ts: pongTs,
+        msg: `🟢 PONG received from ${m.data.deviceId || 'agent'} (via AWS IoT Core MQTT)! Round-trip confirmed.`,
+        ok: true
+      });
+      if(!m.targetClientId || m.targetClientId === CLIENT_ID) {
+        logMsg(`🟢 Agent ${m.data.deviceId} confirmed online via MQTT pong!`);
+        appendLaptopEvent(`Worker agent pong received (${m.data.deviceId}).`);
+      }
+      break;
+
+    case 'ping_done':
+      if(!m.clientId || m.clientId === CLIENT_ID) {
+        logMsg(`✓ Ping dispatched to ${fleetDevices.get(m.deviceId)?.name || m.deviceId} (${m.cmdId}); waiting for pong…`);
+        document.querySelectorAll('[data-device-action="ping"]').forEach(button=>{
+          if(button.dataset.deviceId === m.deviceId) { button.disabled = false; button.textContent = 'Ping'; }
+        });
+      }
+      break;
+
+    case 'log':
+      logMsg(m.msg);
+      break;
+
+    case 'welcome':
+      logMsg(m.msg);
+      break;
+  }
+}
+
+// ─── UI helpers ─────────────────────────────────────────────────────────────
+function setWsBadge(ok) {
+  const b = document.getElementById('ws-badge');
+  if(!b) { const state = document.getElementById('laptop-ws-state'); if(state) state.textContent = ok ? 'Live' : 'Disconnected'; return; }
+  b.textContent = ok ? 'WS: live' : 'WS: offline';
+  b.className = `px-2 py-0.5 rounded text-[10px] border font-mono ` +
+    (ok ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+        : 'bg-red-500/10 text-red-400 border-red-500/30');
+}
+
+function loadDevices() {
+  fetch(`${BASE}/api/devices`, {cache:'no-store'}).then(r=>r.json()).then(data=>{
+    fleetDevices = new Map((data.devices || []).filter(d=>d?.deviceId).map(d=>[d.deviceId, d]));
+    renderDevices([...fleetDevices.values()]);
+  }).catch(()=>{});
+}
+
+function updateDeviceCard(device, online) {
+  if(!device?.deviceId) return;
+  const previous = fleetDevices.get(device.deviceId) || {};
+  fleetDevices.set(device.deviceId, {...previous, ...device, online: !!online});
+  renderDevices([...fleetDevices.values()]);
+}
+
+function renderDevices(items) {
+  for(const device of items) {
+    if(device?.deviceId) fleetDevices.set(device.deviceId, {...(fleetDevices.get(device.deviceId)||{}), ...device});
+  }
+  const list = [...fleetDevices.values()].sort((a,b)=>Number(!!b.online)-Number(!!a.online)||String(a.name||a.deviceId).localeCompare(String(b.name||b.deviceId)));
+  const online = list.filter(device=>device.online);
+  if(!selectedDeviceId || (!fleetDevices.has(selectedDeviceId) && online.length)) selectedDeviceId = online[0]?.deviceId || '';
+  if(selectedDeviceId && !fleetDevices.has(selectedDeviceId) && list.length) selectedDeviceId = list[0].deviceId;
+  if(selectedDeviceId) localStorage.setItem('rift-selected-device', selectedDeviceId);
+
+  const selector = document.getElementById('control-device-select');
+  if(selector) {
+    const selected = selectedDeviceId;
+    selector.replaceChildren();
+    if(!list.length) selector.add(new Option('No computers have connected yet', ''));
+    for(const device of list) selector.add(new Option(`${device.online ? '●' : '○'} ${device.name || 'Unnamed computer'}`, device.deviceId));
+    selector.value = selected || '';
+  }
+  const filesSelector = document.getElementById('files-device-select');
+  if(filesSelector) {
+    const selected = selectedDeviceId;
+    filesSelector.replaceChildren();
+    if(!list.length) filesSelector.add(new Option('No computers have connected yet', ''));
+    for(const device of list) filesSelector.add(new Option(`${device.online?'●':'○'} ${device.name||'Unnamed computer'}${device.capabilities?.includes('files')?' · Files':''}`, device.deviceId));
+    filesSelector.value = selected || '';
+  }
+
+  const onlineCount = online.length;
+  const badge = document.getElementById('laptop-badge');
+  if(badge) {
+    badge.textContent = `Computers: ${onlineCount} online`;
+    badge.className = `px-2 py-0.5 rounded border text-[10px] font-mono ${onlineCount ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' : 'bg-slate-800 text-slate-400 border-slate-700'}`;
+  }
+  const count = document.getElementById('fleet-count');
+  if(count) count.textContent = `${onlineCount} online · ${list.length} known`;
+  const laptopFleetCount = document.getElementById('laptop-fleet-count');
+  if(laptopFleetCount) laptopFleetCount.textContent = `${onlineCount} of ${list.length} computer${list.length===1?'':'s'} online`;
+  const shareDevice = document.getElementById('laptop-share-device');
+  if(shareDevice) shareDevice.textContent = selectedDeviceId ? `${fleetDevices.get(selectedDeviceId)?.name || selectedDeviceId} · ${fleetDevices.get(selectedDeviceId)?.online?'online':'offline'}` : 'Select a computer from the fleet.';
+  const laptopState = document.getElementById('laptop-ws-state');
+  if(laptopState && VIEW === 'laptop') laptopState.textContent = `Hub live · ${onlineCount} computer${onlineCount===1?'':'s'} online`;
+
+  const cardMarkup = (device, laptop=false) => {
+    const id = String(device.deviceId || '');
+    const name = String(device.name || 'Unnamed computer');
+    const esc = value => String(value).replace(/[&<>"']/g, ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+    const seen = device.lastSeen ? `${Math.max(0, Math.round(Date.now()/1000-Number(device.lastSeen)))}s ago` : 'just connected';
+    const cpu = Number.isFinite(Number(device.cpu_percent)) ? `${Number(device.cpu_percent).toFixed(1)}%` : '–';
+    const ram = Number.isFinite(Number(device.ram_free_mb)) ? `${(Number(device.ram_free_mb)/1024).toFixed(1)} GB` : '–';
+    const caps = Array.isArray(device.capabilities) ? device.capabilities : [];
+    const onlineClass = device.online ? 'text-emerald-400 bg-emerald-500/10' : 'text-slate-400 bg-slate-700/50';
+    return `<article class="rounded-xl border border-slate-800 bg-slate-950 p-3" data-device-card="${esc(id)}">
+      <div class="flex items-start justify-between gap-2"><div class="min-w-0"><div class="font-semibold truncate">${esc(name)}</div><div class="text-[10px] text-slate-500">${esc(caps.length ? caps.join(' · ') : 'Computer')}</div></div><span class="rounded px-2 py-1 text-[10px] ${onlineClass}">${device.online?'ONLINE':'OFFLINE'}</span></div>
+      <div class="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-slate-400"><span>CPU ${cpu}</span><span>RAM free ${ram}</span><span>Seen ${seen}</span>${caps.map(cap=>`<span class="text-sky-300">${esc(cap)}</span>`).join('')}</div>
+      ${device.controllerClientId ? `<div class="mt-2 text-[10px] text-amber-300">Controlled by ${esc(device.controllerClientId)}</div>` : '<div class="mt-2 text-[10px] text-slate-500">No phone currently controls this computer</div>'}
+      <div class="mt-3 flex gap-2">${!laptop?`<button data-device-action="select" data-device-id="${esc(id)}" class="flex-1 rounded-lg ${selectedDeviceId===id?'bg-sky-700':'bg-slate-800'} px-2 py-2 text-[11px]">${selectedDeviceId===id?'Selected':'Open device'}</button><button data-device-action="ping" data-device-id="${esc(id)}" class="rounded-lg bg-sky-700 px-3 py-2 text-[11px]" ${device.online?'':'disabled'}>Ping</button>`:`<span class="text-[10px] text-slate-500">${caps.length ? `Capabilities: ${caps.map(esc).join(', ')}` : 'Agent connected to hub'}</span>`}</div>
+    </article>`;
+  };
+  const mobileGrid = document.getElementById('fleet-devices');
+  const laptopGrid = document.getElementById('laptop-devices');
+  const empty = '<div class="rounded-xl border border-slate-800 bg-slate-900 p-4 text-xs text-slate-500">No computers have connected to this hub yet. Start an agent with RIFT_SERVER_URL set to this hub.</div>';
+  if(mobileGrid) mobileGrid.innerHTML = list.length ? list.map(device=>cardMarkup(device)).join('') : empty;
+  if(laptopGrid) laptopGrid.innerHTML = list.length ? list.map(device=>cardMarkup(device,true)).join('') : empty;
+  renderSelectedDevice();
+  updateFilesDeviceState();
+  updateCapabilityTabs();
+  document.querySelectorAll('[data-device-action="select"]').forEach(button=>button.addEventListener('click',()=>{
+    const next = button.dataset.deviceId;
+    selectDevice(next);
+  }));
+  document.querySelectorAll('[data-device-action="ping"]').forEach(button=>button.addEventListener('click',()=>doPing(button.dataset.deviceId, button)));
+}
+
+function selectDevice(deviceId) {
+  if(!deviceId || !fleetDevices.has(deviceId)) return;
+  if(controlActive && deviceId !== controlDeviceId) stopLaptopControl();
+  selectedDeviceId = deviceId;
+  localStorage.setItem('rift-selected-device', deviceId);
+  const selector = document.getElementById('control-device-select');
+  if(selector) selector.value = deviceId;
+  // Clear device-scoped visual state immediately so a frame or cursor from the
+  // previous computer cannot remain visible while the new stream starts.
+  const screen = document.getElementById('remote-screen');
+  const cursor = document.getElementById('remote-cursor');
+  const badge = document.getElementById('remote-cursor-badge');
+  if(screen) screen.removeAttribute('src');
+  if(cursor) { cursor.style.display = 'none'; cursor.style.transform = ''; cursor.classList.remove('stale'); }
+  if(badge) badge.textContent = 'Cursor: waiting…';
+  controlActive = false;
+  controlDeviceId = '';
+  const panel = document.getElementById('screen-control-panel');
+  if(panel) panel.classList.add('hidden');
+  filesEntries = [];
+  filesNextOffset = null;
+  filesLoadedDeviceId = '';
+  filesPathStack = [];
+  filesCurrentPathId = filesRootPathId;
+  closeFileViewer();
+  setControlStatus(false, `${fleetDevices.get(deviceId)?.name || deviceId} selected. Connect with that computer's PIN to start a fresh stream.`);
+  renderDevices([]);
+  if(document.getElementById('s-files')?.classList.contains('hidden') === false) loadFiles();
+  logMsg(`Selected computer ${fleetDevices.get(deviceId)?.name || deviceId}.`);
+}
+
+function renderSelectedDevice() {
+  const panel = document.getElementById('device-detail');
+  const device = fleetDevices.get(selectedDeviceId);
+  if(!panel || !device) { panel?.classList.add('hidden'); return; }
+  const caps = Array.isArray(device.capabilities) ? device.capabilities : [];
+  const name = escapeHtml(device.name || 'Unnamed computer');
+  const status = device.online ? 'Online and available' : 'Offline';
+  const metrics = [
+    ['CPU', Number.isFinite(Number(device.cpu_percent)) ? `${Number(device.cpu_percent).toFixed(1)}%` : '–'],
+    ['Free RAM', Number.isFinite(Number(device.ram_free_mb)) ? `${(Number(device.ram_free_mb)/1024).toFixed(1)} GB` : '–'],
+    ['Controller', device.controllerClientId ? escapeHtml(device.controllerClientId) : 'None']
+  ];
+  const features = [
+    ['screen','Screen Share','screen'], ['compute','Compute','jobs'],
+    ['vision','Vision','vision'], ['llm','LLM','llm'], ['files','Files','files']
+  ].filter(([cap])=>caps.includes(cap));
+  panel.classList.remove('hidden');
+  panel.innerHTML = `<div class="flex items-start justify-between gap-3"><div><div class="text-[10px] uppercase tracking-wider text-sky-300">Selected computer</div><h3 class="font-semibold">${name}</h3></div><span class="text-xs ${device.online?'text-emerald-400':'text-slate-400'}">● ${status}</span></div>
+    <div class="grid grid-cols-3 gap-2">${metrics.map(([label,value])=>`<div class="rounded-lg bg-slate-950 p-2"><div class="text-[9px] text-slate-500">${label}</div><div class="text-xs truncate">${value}</div></div>`).join('')}</div>
+    <div><div class="text-[10px] text-slate-400 mb-2">Available features</div><div class="flex flex-wrap gap-2">${features.length ? features.map(([cap,label,destination])=>`<button onclick="tab('${destination}')" class="rounded-lg bg-slate-800 px-3 py-2 text-[11px] ${device.online?'':'opacity-50'}" ${device.online?'':'disabled'}>${label}</button>`).join('') : '<span class="text-[11px] text-slate-500">No feature capabilities reported yet.</span>'}</div></div>`;
+}
+
+function updateFilesDeviceState() {
+  const device = fleetDevices.get(selectedDeviceId);
+  const select = document.getElementById('files-device-select');
+  if(select) select.value = selectedDeviceId || '';
+  const state = document.getElementById('files-device-state');
+  const screenEntry = document.getElementById('screen-files-entry');
+  const laptopState = document.getElementById('laptop-files-service-state');
+  const capable = !!device?.capabilities?.includes('files');
+  if(laptopState) {
+    laptopState.textContent = !device?'Select a computer':!device.online?'Agent offline':capable?'Files online':'Files capability missing';
+    laptopState.className=`rounded-full px-2 py-1 text-[10px] ${device?.online&&capable?'bg-emerald-500/10 text-emerald-300':'bg-slate-800 text-slate-400'}`;
+  }
+  if(state) {
+    state.textContent = !device ? 'Choose a computer' : !device.online ? 'Computer offline' : capable ? 'Files capable' : 'Files unavailable';
+    state.className = `shrink-0 rounded-full px-2.5 py-1 text-[10px] ${device?.online&&capable?'bg-emerald-500/10 text-emerald-300':'bg-slate-800 text-slate-400'}`;
+  }
+  if(screenEntry) {
+    screenEntry.innerHTML = capable && device.online
+      ? `<div class="flex items-center justify-between gap-2"><span>Browse or send files to <strong class="text-slate-300">${escapeHtml(device.name||device.deviceId)} · RIFT Inbox</strong></span><button onclick="tab('files')" class="shrink-0 rounded-lg bg-sky-700 px-3 py-2 text-[11px] text-white">Open Files</button></div><div class="mt-1 text-[10px] text-slate-500">File access requires this phone to be paired to the selected computer.</div>`
+      : 'File access requires an online computer with the Files capability.';
+  }
+}
+
+function updateCapabilityTabs() {
+  const caps = fleetDevices.get(selectedDeviceId)?.capabilities || [];
+  const mapping = {jobs:'compute', vision:'vision', llm:'llm', screen:'screen'};
+  for(const [tabName, capability] of Object.entries(mapping)) {
+    const button = document.getElementById(`t-${tabName}`);
+    if(button) button.classList.toggle('hidden', !caps.includes(capability));
+  }
+  const active = document.querySelector('#mobile-tabs .tab-active');
+  if(active?.classList.contains('hidden')) tab('nodes');
+}
+
+function appendLaptopEvent(message) {
+  const el = document.getElementById('laptop-ping-log');
+  if(!el) return;
+  const row = document.createElement('div');
+  row.textContent = `[${new Date().toTimeString().slice(0,8)}] ${message}`;
+  el.prepend(row);
+}
+
+function renderMobileClients(clients) {
+  const count = document.getElementById('mobile-count');
+  const list = document.getElementById('mobile-clients');
+  if(count) count.textContent = clients.length;
+  if(!list) return;
+  if(!clients.length) { list.innerHTML = '<div class="text-slate-500">No mobile devices connected.</div>'; return; }
+  list.innerHTML = clients.map(c => `<div class="flex items-center justify-between bg-slate-950 border border-slate-800 rounded-lg px-3 py-2"><div><div class="font-medium">${escapeHtml(c.name)}</div><div class="text-xs text-slate-500">${escapeHtml(c.id)} · ${c.connections} active tab(s)</div></div><button onclick="pingMobile('${escapeJs(c.id)}')" class="text-xs bg-sky-700 px-3 py-1.5 rounded">Ping</button></div>`).join('');
+}
+
+function escapeHtml(value) { return String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function escapeJs(value) { return String(value).replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
+
+function showLaptopCameraFrame(frame) {
+  const img = document.getElementById('laptop-camera');
+  if(!img) return;
+  img.src = 'data:image/jpeg;base64,' + frame.frame;
+  img.classList.remove('hidden');
+  document.getElementById('camera-empty').classList.add('hidden');
+  document.getElementById('camera-caption').textContent = `${frame.clientId} · ${frame.count} face(s) detected · ${new Date(frame.timestamp * 1000).toLocaleTimeString()}`;
+}
+
+function pingMobile(clientId=null) {
+  const pingId = 'phone-' + crypto.randomUUID();
+  if(ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({type:'ping_mobile', clientId, pingId}));
+    appendLaptopEvent(`Ping sent to ${clientId || 'all connected phones'}…`);
+  }
+}
+function pingAllMobiles() { pingMobile(null); }
+function pingLaptopServer() {
+  if(ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({type:'ping_laptop', sentAt:Date.now()}));
+}
+
+function logMsg(msg) {
+  const b = document.getElementById('log-box');
+  if(!b) { appendLaptopEvent(msg); return; }
+  const t = document.createElement('div');
+  const ts = new Date().toTimeString().slice(0,8);
+  t.textContent = `[${ts}] ${msg}`;
+  t.className = 'text-slate-400';
+  b.appendChild(t);
+  b.scrollTop = b.scrollHeight;
+}
+
+// ─── Tabs ───────────────────────────────────────────────────────────────────
+function tab(name) {
+  ['nodes','jobs','vision','llm','screen','files'].forEach(n => {
+    document.getElementById('s-' + n).classList.toggle('hidden', n !== name);
+    document.getElementById('t-' + n).className = 'flex-1 py-2.5 text-xs font-semibold ' +
+      (n === name ? 'tab-active' : 'tab-inactive');
+  });
+  if(name === 'jobs') loadJobs();
+  if(name === 'files') loadFiles();
+}
+
+function fileHeaders(extra={}) {
+  const tokenKey=`${CLIENT_ID}:${selectedDeviceId}`;
+  const token=filesAccessTokens.get(selectedDeviceId)||sessionStorage.getItem(`rift-files-token:${tokenKey}`)||'';
+  if(token) filesAccessTokens.set(selectedDeviceId,token);
+  return {'X-RIFT-Client-ID':CLIENT_ID, ...(token?{'X-RIFT-FILES-TOKEN':token}:{}), ...extra};
+}
+function fileSize(bytes) {
+  const n = Number(bytes)||0;
+  if(n < 1024) return `${n} B`;
+  if(n < 1024*1024) return `${(n/1024).toFixed(1)} KB`;
+  if(n < 1024*1024*1024) return `${(n/1024/1024).toFixed(1)} MB`;
+  return `${(n/1024/1024/1024).toFixed(2)} GB`;
+}
+function setFilesStatus(message, error=false) {
+  const el = document.getElementById('files-status');
+  if(!el) return;
+  el.textContent = message;
+  el.className = `mt-3 rounded-lg border p-3 text-[11px] ${error?'border-red-500/30 bg-red-500/5 text-red-300':'border-slate-800 bg-slate-950 text-slate-300'}`;
+}
+async function loadFiles(scope=filesScope, pathId=null, append=false, offset=0) {
+  if(!append) filesNextOffset = null;
+  const device = fleetDevices.get(selectedDeviceId);
+  if(scope !== filesScope) {
+    filesScope = scope;
+    filesRootPathId = scope === 'inbox' ? 'inbox-root' : 'shared-root';
+    filesPathStack = [];
+  }
+  filesCurrentPathId = pathId || (filesPathStack.at(-1)?.pathId || filesRootPathId);
+  const container = document.getElementById('files-entries');
+  const scopeName = filesScope === 'inbox' ? 'RIFT Inbox' : 'RIFT Shared';
+  document.getElementById('files-shared-btn')?.classList.toggle('bg-sky-700', filesScope==='shared');
+  document.getElementById('files-shared-btn')?.classList.toggle('bg-slate-800', filesScope!=='shared');
+  document.getElementById('files-inbox-btn')?.classList.toggle('bg-sky-700', filesScope==='inbox');
+  document.getElementById('files-inbox-btn')?.classList.toggle('bg-slate-800', filesScope!=='inbox');
+  if(!device || !device.online || !device.capabilities?.includes('files')) {
+    setFilesStatus(device ? (device.online?'This computer does not provide the Files capability. Update and restart its agent.':'This computer is offline; file access is online-only.') : 'Select a computer, then pair it in Screen Share using its PIN.', true);
+    filesEntries = [];
+    renderFilesEntries();
+    return;
+  }
+  if(container) container.innerHTML = '<div class="p-4 text-center text-xs text-slate-400">Loading folder…</div>';
+  setFilesStatus(`Connecting to ${device.name||device.deviceId} · ${scopeName}…`);
+  try {
+    const response = await fetch(`${BASE}/api/files/${encodeURIComponent(device.deviceId)}/entries?pathId=${encodeURIComponent(filesCurrentPathId)}&offset=${offset}`, {headers:fileHeaders(),cache:'no-store'});
+    const data = await response.json().catch(()=>({}));
+    if(!response.ok) throw new Error(data.message||data.error||`File listing failed (${response.status})`);
+    filesLoadedDeviceId = device.deviceId;
+    filesEntries = append ? filesEntries.concat(data.entries||[]) : (data.entries||[]);
+    filesNextOffset = data.nextOffset ?? null;
+    const crumbs = document.getElementById('files-breadcrumb');
+    if(crumbs) crumbs.innerHTML = `<button onclick="filesPathStack=[];loadFiles(filesScope,filesRootPathId)">${escapeHtml(data.rootName||scopeName)}</button>` + filesPathStack.map((item,index)=>`<span>›</span><button onclick="filesPathStack=filesPathStack.slice(0,${index+1});loadFiles(filesScope,'${escapeJs(item.pathId)}')">${escapeHtml(item.name)}</button>`).join('');
+    setFilesStatus(`${device.name||device.deviceId} · ${scopeName} · ${filesEntries.length} item${filesEntries.length===1?'':'s'}`);
+    renderFilesEntries();
+  } catch(error) {
+    filesEntries = [];
+    renderFilesEntries();
+    setFilesStatus(error.message || 'Could not load this folder.', true);
+  }
+}
+function renderFilesEntries() {
+  const container = document.getElementById('files-entries');
+  if(!container) return;
+  const query = (document.getElementById('files-search')?.value||'').trim().toLowerCase();
+  const sort = document.getElementById('files-sort')?.value||'name';
+  const items = filesEntries.filter(item=>String(item.name||'').toLowerCase().includes(query));
+  items.sort((a,b)=>a.kind!==b.kind?(a.kind==='directory'?-1:1):sort==='size'?Number(b.size||0)-Number(a.size||0):sort==='modified'?Number(b.modified||0)-Number(a.modified||0):String(a.name).localeCompare(String(b.name),undefined,{numeric:true,sensitivity:'base'}));
+  if(!items.length) { container.innerHTML = `<div class="p-5 text-center text-xs text-slate-500">${filesEntries.length?'No matching items.':'This folder is empty.'}</div>`; return; }
+  container.innerHTML = items.map(item=>`<div class="flex items-center gap-2 rounded-lg border border-slate-800 px-2 py-2"><button class="min-w-0 flex-1 text-left" data-file-open="${escapeHtml(item.kind==='directory'?item.pathId:item.fileId)}" data-file-kind="${item.kind}" data-file-name="${escapeHtml(item.name)}"><div class="truncate text-xs text-slate-200">${item.kind==='directory'?'📁':'📄'} ${escapeHtml(item.name)}</div><div class="text-[10px] text-slate-500">${item.kind==='directory'?'Folder':`${fileSize(item.size)} · ${new Date((item.modified||0)*1000).toLocaleDateString()}`}</div></button>${item.kind==='file'?`<button data-file-action="view" data-file-id="${escapeHtml(item.fileId)}" data-file-name="${escapeHtml(item.name)}" data-file-mime="${escapeHtml(item.mime||'application/octet-stream')}" class="rounded bg-slate-800 px-2 py-1.5 text-[10px]">View</button><button data-file-action="download" data-file-id="${escapeHtml(item.fileId)}" data-file-name="${escapeHtml(item.name)}" data-file-mime="${escapeHtml(item.mime||'application/octet-stream')}" class="rounded bg-sky-800 px-2 py-1.5 text-[10px]">Save</button><button data-file-action="info" data-file-id="${escapeHtml(item.fileId)}" data-file-name="${escapeHtml(item.name)}" data-file-mime="${escapeHtml(item.mime||'application/octet-stream')}" data-file-size="${Number(item.size)||0}" class="rounded bg-slate-800 px-2 py-1.5 text-[10px]">Info</button>`:''}</div>`).join('') + (filesNextOffset!==null?`<button onclick="loadFiles(filesScope,filesCurrentPathId,true,${filesNextOffset})" class="w-full rounded-lg bg-slate-800 py-2 text-xs text-sky-300">Load more</button>`:'');
+  container.querySelectorAll('[data-file-open]').forEach(button=>button.addEventListener('click',()=>{
+    if(button.dataset.fileKind==='directory') { filesPathStack.push({name:button.dataset.fileName,pathId:button.dataset.fileOpen}); loadFiles(filesScope,button.dataset.fileOpen); }
+    else openFileAction(button.dataset.fileOpen,button.dataset.fileName,button.dataset.fileMime,'view');
+  }));
+  container.querySelectorAll('[data-file-action]').forEach(button=>button.addEventListener('click',()=>openFileAction(button.dataset.fileId,button.dataset.fileName,button.dataset.fileMime,button.dataset.fileAction,Number(button.dataset.fileSize)||0)));
+}
+async function openFileAction(fileId,name,mime,mode,size=0) {
+  if(mode==='info') { setFilesStatus(`${name} · ${fileSize(size)} · ${mime}`); return; }
+  if(!selectedDeviceId || selectedDeviceId!==filesLoadedDeviceId) { setFilesStatus('Refresh the selected computer folder before opening this item.',true); return; }
+  try {
+    const response = await fetch(`${BASE}/api/files/${encodeURIComponent(selectedDeviceId)}/link/${encodeURIComponent(fileId)}`,{method:'POST',headers:fileHeaders({'Content-Type':'application/json'}),body:JSON.stringify({mode:mode==='download'?'attachment':'inline'})});
+    const data = await response.json().catch(()=>({}));
+    if(!response.ok) throw new Error(data.message||data.error||`Could not open file (${response.status})`);
+    const url = new URL(data.url,BASE).href;
+    if(mode==='download') { const a=document.createElement('a'); a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove(); return; }
+    if(mime==='text/html'||mime==='image/svg+xml'||mime==='application/xhtml+xml') { setFilesStatus('Active HTML/SVG files are not previewed for safety. Use Save to download.',true); return; }
+    if(mime.startsWith('video/')) {
+      const viewer=document.getElementById('files-viewer'), video=document.getElementById('files-video');
+      closeFileViewer(); viewer.classList.remove('hidden'); document.getElementById('files-viewer-title').textContent=name;
+      video.classList.remove('hidden'); video.src=url; video.load(); video.onerror=()=>{const error=document.getElementById('files-viewer-error');error.textContent='This video codec/container is not supported by this browser. FFmpeg transcoding is not configured yet.';error.classList.remove('hidden');};
+      viewer.scrollIntoView({behavior:'smooth',block:'start'}); return;
+    }
+    if(mime.startsWith('image/')) {
+      const viewer=document.getElementById('files-viewer'), image=document.getElementById('files-image');
+      closeFileViewer(); viewer.classList.remove('hidden'); document.getElementById('files-viewer-title').textContent=name;
+      image.classList.remove('hidden'); image.src=url; viewer.scrollIntoView({behavior:'smooth',block:'start'}); return;
+    }
+    if(mime==='application/pdf'||mime.startsWith('text/')) {
+      const viewer=document.getElementById('files-viewer'), frame=document.getElementById('files-document');
+      closeFileViewer(); viewer.classList.remove('hidden'); document.getElementById('files-viewer-title').textContent=name;
+      frame.classList.remove('hidden'); frame.src=url; viewer.scrollIntoView({behavior:'smooth',block:'start'}); return;
+    }
+    setFilesStatus(`Preview is not available for ${mime}. Use Save to download it.`);
+  } catch(error) { setFilesStatus(error.message||'Could not open file.',true); }
+}
+function closeFileViewer() {
+  const viewer=document.getElementById('files-viewer'); if(viewer) viewer.classList.add('hidden');
+  const video=document.getElementById('files-video'); if(video){video.pause();video.removeAttribute('src');video.load();video.classList.add('hidden');}
+  const image=document.getElementById('files-image'); if(image){image.removeAttribute('src');image.classList.add('hidden');}
+  const frame=document.getElementById('files-document'); if(frame){frame.removeAttribute('src');frame.classList.add('hidden');}
+  const error=document.getElementById('files-viewer-error'); if(error){error.textContent='';error.classList.add('hidden');}
+}
+async function uploadSelectedFiles(fileList) {
+  const files=[...(fileList||[])];
+  if(!files.length) return;
+  const device=fleetDevices.get(selectedDeviceId);
+  if(!device?.online||!device.capabilities?.includes('files')) {setFilesStatus('Choose an online computer with the Files capability first.',true);return;}
+  for(const file of files) await uploadOneFile(device,file);
+}
+async function uploadOneFile(device,file) {
+  const queue=document.getElementById('files-transfer-queue');
+  if(queue.querySelector('[data-empty-queue]')) queue.innerHTML='';
+  const key=`rift-upload:${device.deviceId}:${file.name}:${file.size}:${file.lastModified}`;
+  let uploadId=localStorage.getItem(key)||'';
+  const row=document.createElement('div'); row.className='rounded-lg border border-slate-800 bg-slate-950 p-3';
+  row.innerHTML=`<div class="flex justify-between gap-2"><span class="truncate text-xs">${escapeHtml(file.name)}</span><span class="text-[10px] text-slate-400" data-upload-state>Starting…</span></div><div class="mt-2 h-1.5 overflow-hidden rounded bg-slate-800"><div data-upload-progress class="h-full w-0 bg-sky-500"></div></div><div class="mt-1 text-[10px] text-slate-500" data-upload-size>${fileSize(0)} / ${fileSize(file.size)}</div>`;
+  queue.prepend(row);
+  const state=row.querySelector('[data-upload-state]'), bar=row.querySelector('[data-upload-progress]'), sizeLabel=row.querySelector('[data-upload-size]');
+  const endpoint=`${BASE}/api/files/${encodeURIComponent(device.deviceId)}`;
+  try {
+    const started=await fetch(`${endpoint}/uploads`,{method:'POST',headers:fileHeaders({'Content-Type':'application/json'}),body:JSON.stringify({name:file.name,size:file.size,uploadId})});
+    const startData=await started.json().catch(()=>({}));
+    if(!started.ok) throw new Error(startData.message||startData.error||`Upload could not start (${started.status})`);
+    uploadId=startData.uploadId; localStorage.setItem(key,uploadId);
+    let offset=Number(startData.resumeFrom)||0;
+    state.textContent=offset?'Resuming':'Uploading';
+    try { filesWakeLock=await navigator.wakeLock?.request('screen'); } catch {}
+    const chunkSize=Math.min(Number(startData.chunkSize)||512*1024,512*1024);
+    while(offset<file.size) {
+      const chunk=file.slice(offset,Math.min(offset+chunkSize,file.size));
+      const result=await fetch(`${endpoint}/uploads/${encodeURIComponent(uploadId)}?offset=${offset}`,{method:'PUT',headers:fileHeaders({'Content-Type':'application/octet-stream'}),body:await chunk.arrayBuffer()});
+      const body=await result.json().catch(()=>({}));
+      if(!result.ok) throw new Error(body.message||body.error||`Upload stopped at ${fileSize(offset)} (${result.status})`);
+      offset=Number(body.received)||offset+chunk.size;
+      bar.style.width=`${file.size?Math.min(100,offset/file.size*100):100}%`;
+      sizeLabel.textContent=`${fileSize(offset)} / ${fileSize(file.size)}`;
+      state.textContent=`Uploading · ${Math.round(file.size?offset/file.size*100:100)}%`;
+    }
+    const finished=await fetch(`${endpoint}/uploads/${encodeURIComponent(uploadId)}/finish`,{method:'POST',headers:fileHeaders()});
+    const finishData=await finished.json().catch(()=>({}));
+    if(!finished.ok) throw new Error(finishData.message||finishData.error||'Could not finish upload');
+    localStorage.removeItem(key);
+    state.textContent=finishData.quarantined?'Quarantined for laptop approval':'Complete';
+    state.className='text-[10px] text-emerald-300';
+    sizeLabel.textContent=`${fileSize(finishData.size)} · SHA-256 ${String(finishData.sha256||'').slice(0,16)}…`;
+    setFilesStatus(finishData.quarantined?`${file.name} was placed in Quarantine; do not run it until the laptop owner reviews it.`:`${file.name} saved to ${finishData.path||'RIFT Inbox'}.`);
+    if(filesScope==='inbox') await loadFiles('inbox',filesCurrentPathId);
+  } catch(error) {
+    state.textContent='Interrupted · reselect to resume'; state.className='text-[10px] text-amber-300';
+    sizeLabel.textContent=error.message||'Upload failed'; setFilesStatus(error.message||'Upload failed. Reselect this same file to resume.',true);
+  } finally { try { await filesWakeLock?.release(); } catch {} filesWakeLock=null; }
+}
+
+function sendControlInput(event) {
+  if(controlActive && ws && ws.readyState === WebSocket.OPEN)
+    ws.send(JSON.stringify({type:'control_input', deviceId:controlDeviceId, event}));
+}
+function requestLaptopControl() {
+  const pin = document.getElementById('control-pin').value.trim();
+  if(!/^\d{6}$/.test(pin)) { setControlStatus(false, 'Enter the six-digit PIN shown in the laptop agent terminal.'); return; }
+  const selector = document.getElementById('control-device-select');
+  selectedDeviceId = selector?.value || selectedDeviceId;
+  if(!selectedDeviceId) { setControlStatus(false, 'No computer is available. Start its agent and connect it to this hub.'); return; }
+  if(!ws || ws.readyState !== WebSocket.OPEN) { setControlStatus(false, 'R.I.F.T. server is disconnected.'); return; }
+  controlDeviceId = selectedDeviceId;
+  setControlStatus(false, 'Checking PIN and connecting…');
+  ws.send(JSON.stringify({type:'control_request', deviceId:controlDeviceId, pin}));
+}
+function setControlStatus(ok, message) {
+  controlActive = ok;
+  if(!ok) {
+    screenPointerStart = null;
+    const screen = document.getElementById('remote-screen');
+    if(screen) screen.removeAttribute('src');
+  }
+  const status = document.getElementById('control-status');
+  if(status) { status.textContent = message || (ok ? 'Connected.' : 'Not connected.'); status.className = 'text-xs ' + (ok ? 'text-emerald-400' : 'text-slate-400'); }
+  document.getElementById('screen-control-panel')?.classList.toggle('hidden', !ok);
+  document.getElementById('control-stop')?.classList.toggle('hidden', !ok);
+  document.getElementById('control-connect')?.classList.toggle('hidden', ok);
+  if(!ok) exitScreenFullscreen();
+}
+function stopLaptopControl() {
+  if(ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({type:'control_stop', deviceId:controlDeviceId}));
+  controlActive = false;
+  screenPointerStart = null;
+  const screen = document.getElementById('remote-screen');
+  if(screen) screen.removeAttribute('src');
+  setControlStatus(false, 'Remote control stopped.');
+}
+// Content box of the picture inside the wrapper, in LAYOUT space (offset* values ignore CSS
+// transforms, so this stays correct when the fullscreen panel is rotated 90deg on portrait phones).
+function remoteContentBox() {
+  const screen = document.getElementById('remote-screen');
+  const iw = screen.naturalWidth || remoteScreenWidth, ih = screen.naturalHeight || remoteScreenHeight;
+  const bw = screen.offsetWidth, bh = screen.offsetHeight;
+  const scale = Math.min(bw / Math.max(iw, 1), bh / Math.max(ih, 1));
+  const cw = iw * scale, ch = ih * scale;
+  return {left: screen.offsetLeft + (bw - cw) / 2, top: screen.offsetTop + (bh - ch) / 2, width: Math.max(cw, 1), height: Math.max(ch, 1)};
+}
+function panelRotated90() {
+  try {
+    const t = getComputedStyle(document.getElementById('screen-control-panel')).transform;
+    if(t && t !== 'none') return Math.abs(new DOMMatrixReadOnly(t).b) > 0.5;
+  } catch(e) {}
+  return false;
+}
+function remoteScreenCoords(event) {
+  const rect = document.getElementById('remote-screen-wrap').getBoundingClientRect();
+  // Screen point -> wrapper layout point. rotate(90deg) about the top-left maps local (lx,ly) to screen (right-ly, top+lx).
+  const rotated = panelRotated90();
+  const lx = rotated ? event.clientY - rect.top : event.clientX - rect.left;
+  const ly = rotated ? rect.right - event.clientX : event.clientY - rect.top;
+  const box = remoteContentBox();
+  return {x: Math.max(0, Math.min(1, (lx - box.left) / box.width)), y: Math.max(0, Math.min(1, (ly - box.top) / box.height))};
+}
+
+// ─── Live laptop cursor arrow ───────────────────────────────────────────────
+function applyRemoteCursor(m) {
+  const x = Number(m.cursorX), y = Number(m.cursorY);
+  if(!Number.isFinite(x) || !Number.isFinite(y)) return;
+  const mon = Array.isArray(m.mon) ? m.mon : null;
+  // A cursor update for a display whose frame has not arrived yet would be drawn on the wrong picture.
+  if(m.type === 'control_cursor' && mon && remoteFrameMon && mon.join(',') !== remoteFrameMon) return;
+  remoteCursor = {x, y, mon, seen: performance.now()};
+  if(!padGesture) virtualPointer = {x, y};   // touchpad always starts from the real laptop position
+  scheduleCursorRender();
+}
+let cursorRenderQueued = false;
+function scheduleCursorRender() {
+  if(cursorRenderQueued) return;
+  cursorRenderQueued = true;
+  requestAnimationFrame(() => { cursorRenderQueued = false; renderRemoteCursor(); });
+}
+function renderRemoteCursor() {
+  const el = document.getElementById('remote-cursor'), badge = document.getElementById('remote-cursor-badge');
+  const screen = document.getElementById('remote-screen');
+  if(!el || !badge || !screen) return;
+  if(!controlActive || !screen.getAttribute('src')) { el.style.display = 'none'; badge.style.display = 'none'; return; }
+  const box = remoteContentBox();
+  const stale = performance.now() - remoteCursor.seen > 1500;
+  el.style.display = 'block'; badge.style.display = 'block';
+  el.classList.toggle('stale', stale);
+  el.style.transform = `translate(${box.left + remoteCursor.x * box.width}px, ${box.top + remoteCursor.y * box.height}px)`;
+  const mon = remoteCursor.mon;
+  if(stale) badge.textContent = 'Cursor signal lost…';
+  else if(mon) { const w = mon[2] - mon[0], h = mon[3] - mon[1]; badge.textContent = `Cursor ${Math.round(remoteCursor.x * (w - 1))}, ${Math.round(remoteCursor.y * (h - 1))} · ${w}×${h}`; }
+  else badge.textContent = `Cursor ${(remoteCursor.x * 100).toFixed(1)}%, ${(remoteCursor.y * 100).toFixed(1)}%`;
+}
+{
+  const img = document.getElementById('remote-screen'), wrap = document.getElementById('remote-screen-wrap');
+  img.addEventListener('load', scheduleCursorRender);
+  if(window.ResizeObserver) { const ro = new ResizeObserver(scheduleCursorRender); ro.observe(img); ro.observe(wrap); }
+  window.addEventListener('resize', scheduleCursorRender);
+  window.addEventListener('orientationchange', () => setTimeout(scheduleCursorRender, 200));
+  setInterval(renderRemoteCursor, 500);   // also flags a stale cursor feed
+}
+const remoteWrap = document.getElementById('remote-screen-wrap');
+document.getElementById('control-device-select')?.addEventListener('change', event=>{
+  const next = event.target.value;
+  if(controlActive && next !== controlDeviceId) stopLaptopControl();
+  selectedDeviceId = next;
+  localStorage.setItem('rift-selected-device', next);
+});
+remoteWrap.addEventListener('pointerdown', event => {
+  if(!controlActive) return;
+  event.preventDefault(); remoteWrap.setPointerCapture(event.pointerId);
+  const p = remoteScreenCoords(event); screenPointerStart = p; sendControlInput({type:'down', ...p});
+});
+remoteWrap.addEventListener('pointermove', event => {
+  if(!controlActive || !screenPointerStart) return;
+  const now = performance.now(); if(now-lastPointerSend < 60) return; lastPointerSend = now;
+  sendControlInput({type:'move', ...remoteScreenCoords(event)});
+});
+remoteWrap.addEventListener('pointerup', event => {
+  if(!controlActive || !screenPointerStart) return;
+  event.preventDefault(); sendControlInput({type:'up', ...remoteScreenCoords(event)}); screenPointerStart = null;
+});
+remoteWrap.addEventListener('pointercancel', () => { screenPointerStart = null; });
+function sendRemoteKey(key) { sendControlInput({type:'key', key}); }
+function sendRemoteKeyDown(key) { sendControlInput({type:'keydown', key}); }
+function sendRemoteKeyUp(key) { sendControlInput({type:'keyup', key}); }
+function sendRemoteShortcut(...keys) { sendControlInput({type:'hotkey', keys}); }
+function toggleScreenFullscreen() {
+  const panel = document.getElementById('screen-control-panel');
+  if(!panel) return;
+  if(panel.classList.contains('screen-fullscreen')) exitScreenFullscreen();
+  else {
+    panel.classList.add('screen-fullscreen');
+    document.body.classList.add('screen-share-open');
+    document.getElementById('screen-controls-body').classList.remove('hidden');
+    document.getElementById('screen-share-toolbar').classList.remove('hidden');
+    document.getElementById('touchpad-controls').classList.add('hidden');
+    document.getElementById('keyboard-controls').classList.remove('hidden');
+    document.getElementById('virtual-keyboard').classList.remove('hidden');
+    document.getElementById('keyboard-toggle').textContent='Hide keyboard';
+    document.getElementById('screen-keyboard-toggle').classList.remove('hidden');
+    document.getElementById('screen-keyboard-toggle').textContent='Hide keyboard';
+    document.getElementById('screen-fullscreen-exit-btn').textContent = '× Exit full screen';
+    let fullscreenRequest=Promise.resolve();
+    if(document.documentElement.requestFullscreen) fullscreenRequest=document.documentElement.requestFullscreen();
+    fullscreenRequest.then(()=>screen.orientation?.lock?.('landscape')).catch(()=>{
+      // CSS rotates the fullscreen panel on portrait devices when the browser
+      // does not permit the Screen Orientation API lock.
+    });
+  }
+}
+function exitScreenFullscreen() {
+  document.getElementById('screen-control-panel')?.classList.remove('screen-fullscreen');
+  document.body.classList.remove('screen-share-open');
+  const button = document.getElementById('screen-fullscreen-exit-btn');
+  if(button) button.textContent = '× Exit full screen';
+  document.getElementById('screen-controls-body')?.classList.remove('hidden');
+  document.getElementById('screen-share-toolbar')?.classList.add('hidden');
+  document.getElementById('touchpad-controls')?.classList.remove('hidden');
+  document.getElementById('keyboard-controls')?.classList.remove('hidden');
+  document.getElementById('screen-keyboard-toggle')?.classList.add('hidden');
+  document.getElementById('screen-keyboard-toggle').textContent='Keyboard';
+  screen.orientation?.unlock?.();
+  if(document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(()=>{});
+}
+document.addEventListener('fullscreenchange',()=>{
+  if(!document.fullscreenElement && document.getElementById('screen-control-panel')?.classList.contains('screen-fullscreen')) {
+    document.getElementById('screen-control-panel').classList.remove('screen-fullscreen');
+    document.body.classList.remove('screen-share-open');
+    document.getElementById('screen-controls-body').classList.remove('hidden');
+    document.getElementById('screen-share-toolbar').classList.add('hidden');
+    document.getElementById('touchpad-controls').classList.remove('hidden');
+    document.getElementById('keyboard-controls').classList.remove('hidden');
+    document.getElementById('screen-keyboard-toggle').classList.add('hidden');
+    document.getElementById('screen-keyboard-toggle').textContent='Keyboard';
+    document.getElementById('screen-fullscreen-exit-btn').textContent='× Exit full screen';
+    screen.orientation?.unlock?.();
+  }
+});
+function toggleKeyboardOverlay() {
+  const controls=document.getElementById('screen-controls-body');
+  const keyboardPanel=document.getElementById('keyboard-controls');
+  const board=document.getElementById('virtual-keyboard');
+  const show=controls.classList.contains('hidden')||keyboardPanel.classList.contains('hidden')||board.classList.contains('hidden');
+  controls.classList.toggle('hidden',!show);
+  document.getElementById('touchpad-controls').classList.add('hidden');
+  keyboardPanel.classList.toggle('hidden',!show);
+  board.classList.toggle('hidden',!show);
+  document.getElementById('keyboard-toggle').textContent=show?'Hide keyboard':'Show keyboard';
+  document.getElementById('screen-keyboard-toggle').textContent=show?'Hide keyboard':'Keyboard';
+}
+function pointerPositionEvent() { sendControlInput({type:'move', x:virtualPointer.x, y:virtualPointer.y}); }
+function touchpadClick(button='left') { sendControlInput({type:'click', button, x:virtualPointer.x, y:virtualPointer.y}); }
+function toggleDragMode() {
+  dragMode = !dragMode;
+  const button = document.getElementById('drag-mode-btn');
+  button.textContent = dragMode ? 'Drag: on' : 'Drag: off';
+  button.className = dragMode ? 'bg-sky-700 px-2.5 py-1 rounded text-[11px]' : 'bg-slate-800 px-2.5 py-1 rounded text-[11px]';
+}
+const touchpad = document.getElementById('remote-touchpad');
+touchpad.addEventListener('pointerdown', event => {
+  if(!controlActive) return;
+  event.preventDefault(); touchpad.setPointerCapture(event.pointerId);
+  virtualPointer = {x:remoteCursor.x, y:remoteCursor.y};
+  padGesture = {x:event.clientX,y:event.clientY,lastX:event.clientX,lastY:event.clientY,moved:0};
+  if(dragMode) sendControlInput({type:'down',x:virtualPointer.x,y:virtualPointer.y});
+});
+touchpad.addEventListener('pointermove', event => {
+  if(!controlActive || !padGesture) return;
+  const dx = event.clientX-padGesture.lastX, dy = event.clientY-padGesture.lastY;
+  padGesture.lastX=event.clientX; padGesture.lastY=event.clientY;
+  padGesture.moved += Math.abs(dx)+Math.abs(dy);
+  const bounds=touchpad.getBoundingClientRect();
+  virtualPointer.x=Math.max(0,Math.min(1,virtualPointer.x+(dx/Math.max(bounds.width,1))*1.8));
+  virtualPointer.y=Math.max(0,Math.min(1,virtualPointer.y+(dy/Math.max(bounds.height,1))*1.8));
+  const now=performance.now(); if(now-lastPointerSend>=35){lastPointerSend=now;pointerPositionEvent();}
+});
+function endTouchpadGesture() {
+  if(!padGesture) return;
+  if(dragMode) sendControlInput({type:'up',x:virtualPointer.x,y:virtualPointer.y});
+  else if(padGesture.moved<10) touchpadClick('left');
+  padGesture=null;
+}
+touchpad.addEventListener('pointerup', event => { event.preventDefault(); endTouchpadGesture(); });
+touchpad.addEventListener('pointercancel', endTouchpadGesture);
+function toggleVirtualKeyboard() {
+  const board=document.getElementById('virtual-keyboard');
+  const show=board.classList.contains('hidden');
+  board.classList.toggle('hidden',!show);
+  document.getElementById('keyboard-toggle').textContent=show?'Hide keyboard':'Show keyboard';
+}
+let remoteTextComposing=false;
+let ignoreCompositionCommit=false;
+const remoteTextInput=document.getElementById('remote-text');
+remoteTextInput.addEventListener('compositionstart',()=>{remoteTextComposing=true;});
+remoteTextInput.addEventListener('compositionend',event=>{
+  remoteTextComposing=false;
+  if(event.data) sendControlInput({type:'text',text:event.data.slice(0,160)});
+  ignoreCompositionCommit=true;
+  setTimeout(()=>{ignoreCompositionCommit=false;},0);
+});
+remoteTextInput.addEventListener('beforeinput',event=>{
+  if(remoteTextComposing||event.isComposing) return;
+  if(event.inputType==='insertFromComposition'&&ignoreCompositionCommit) return;
+  if(event.inputType==='insertText'&&event.data) sendControlInput({type:'text',text:event.data.slice(0,160)});
+  else if(event.inputType==='insertReplacementText'&&event.data) sendControlInput({type:'text',text:event.data.slice(0,160)});
+  else if(event.inputType==='deleteContentBackward') sendRemoteKey('backspace');
+  else if(event.inputType==='deleteContentForward') sendRemoteKey('delete');
+  else if(event.inputType==='insertLineBreak') sendRemoteKey('enter');
+  else if(event.inputType==='insertFromPaste') {
+    const pasted=event.dataTransfer?.getData('text/plain');
+    if(pasted) sendControlInput({type:'text',text:pasted.slice(0,160)});
+  }
+});
+function makeKeyboardRow(labels, wideKeys=[]) {
+  const row=document.createElement('div'); row.className='keyboard-row';
+  labels.forEach(label=>{
+    const button=document.createElement('button'); button.type='button'; button.className='remote-key';
+    button.textContent=label; if(wideKeys.includes(label)) button.style.flex='1.8';
+    let heldKey=null;
+    button.addEventListener('pointerdown',event=>{
+      event.preventDefault();
+      try { button.setPointerCapture(event.pointerId); } catch {}
+      if(label==='Enter') heldKey='enter';
+      else if(label==='Tab') heldKey='tab';
+      else if(label==='Esc') heldKey='esc';
+      else if(label==='⌫') heldKey='backspace';
+      else if(label==='Space') heldKey='space';
+      else if(label==='←') heldKey='left';
+      else if(label==='→') heldKey='right';
+      else if(label==='↑') heldKey='up';
+      else if(label==='↓') heldKey='down';
+      else if(label==='Shift') {
+        virtualShift=!virtualShift;
+        button.classList.toggle('bg-sky-700',virtualShift);
+        if(virtualShift) sendRemoteKeyDown('shift'); else sendRemoteKeyUp('shift');
+        return;
+      }
+      else heldKey=label.toLowerCase();
+      if(heldKey) sendRemoteKeyDown(heldKey);
+    });
+    const releaseHeldKey=()=>{ if(heldKey){sendRemoteKeyUp(heldKey);heldKey=null;} };
+    button.addEventListener('pointerup',releaseHeldKey);
+    button.addEventListener('pointercancel',releaseHeldKey);
+    button.addEventListener('lostpointercapture',releaseHeldKey);
+    row.appendChild(button);
+  });
+  return row;
+}
+function releaseVirtualKeys() {
+  document.querySelectorAll('#virtual-keyboard .remote-key').forEach(button=>button.dispatchEvent(new Event('pointercancel')));
+  if(virtualShift) {
+    sendRemoteKeyUp('shift');
+    virtualShift=false;
+    document.querySelectorAll('#virtual-keyboard .remote-key').forEach(button=>{if(button.textContent==='Shift')button.classList.remove('bg-sky-700');});
+  }
+}
+window.addEventListener('blur',releaseVirtualKeys);
+document.addEventListener('visibilitychange',()=>{if(document.hidden)releaseVirtualKeys();});
+const keyboard=document.getElementById('virtual-keyboard');
+keyboard.append(makeKeyboardRow('1234567890'.split('')));
+keyboard.append(makeKeyboardRow('qwertyuiop'.split('')));
+keyboard.append(makeKeyboardRow('asdfghjkl'.split('')));
+keyboard.append(makeKeyboardRow(['Shift',...'zxcvbnm','⌫'],['Shift','⌫']));
+keyboard.append(makeKeyboardRow(['←','↓','↑','→']));
+keyboard.append(makeKeyboardRow(['Esc','Tab','Space','Enter'],['Space','Enter']));
+
+// ─── Ping ───────────────────────────────────────────────────────────────────
+async function doPing(deviceId=selectedDeviceId, btn=null) {
+  if(!deviceId) { logMsg('No computer selected to ping.'); return; }
+  pingDeviceId = deviceId;
+  btn = btn || document.getElementById('ping-btn');
+  if(btn) { btn.disabled = true; btn.textContent = '…'; }
+
+  const box = document.getElementById('ping-log-box');
+  document.getElementById('ping-steps').innerHTML = '';
+  box.classList.remove('hidden');
+  logMsg(`→ Sending ping to ${fleetDevices.get(deviceId)?.name || deviceId}…`);
+  const statusEl = document.getElementById('worker-ping-status');
+  statusEl.textContent = 'Command sent to AWS IoT. Waiting for the worker’s pong…';
+  statusEl.className = 'text-xs text-yellow-400';
+
+  try {
+    const res = await fetch(`${BASE}/api/ping`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({deviceId, clientId:CLIENT_ID})});
+    const data = await res.json();
+    if(data.error) {
+      logMsg('✗ Ping error: ' + data.error);
+      if(btn) { btn.disabled = false; btn.textContent = 'Ping'; }
+      statusEl.textContent = 'Ping request failed: ' + data.error;
+      statusEl.className = 'text-xs text-red-400';
+      return;
+    }
+    pendingWorkerPingId = data.cmdId;
+    pingDeviceId = data.deviceId || deviceId;
+    if(lastWorkerPongId === data.cmdId) {
+      statusEl.textContent = `Confirmed: ${fleetDevices.get(pingDeviceId)?.name || pingDeviceId} replied pong.`;
+      statusEl.className = 'text-xs text-emerald-400';
+      pendingWorkerPingId = null;
+      return;
+    }
+    clearTimeout(workerPingTimer);
+    workerPingTimer = setTimeout(() => {
+      if(pendingWorkerPingId === data.cmdId) {
+        statusEl.textContent = 'No pong received yet. Check that the worker agent is running and connected to AWS IoT.';
+        statusEl.className = 'text-xs text-red-400';
+        pendingWorkerPingId = null;
+      }
+    }, 15000);
+    // Steps arrive via WebSocket in real time
+  } catch(e) {
+    logMsg('✗ Cannot reach the hub: ' + e.message);
+    if(btn) { btn.disabled = false; btn.textContent = 'Ping'; }
+  }
+}
+
+function appendPingStep(step) {
+  if(!document.getElementById('ping-steps')) return;
+  const el = document.createElement('div');
+  el.className = `mb-1 ${step.ok ? 'text-sky-300' : 'text-red-400'}`;
+  el.textContent = `${step.ts}  ${step.msg}`;
+  document.getElementById('ping-steps').appendChild(el);
+}
+
+// ─── Jobs ───────────────────────────────────────────────────────────────────
+async function submitJob() {
+  const type    = document.getElementById('job-type').value;
+  const chunks  = parseInt(document.getElementById('job-chunks').value);
+  const samples = parseInt(document.getElementById('job-samples').value);
+
+  logMsg(`→ Submitting ${type} job (${chunks} chunks, ${samples} samples)…`);
+  try {
+    const res  = await fetch(`${BASE}/api/job`, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({type, chunks, samples})
+    });
+    const data = await res.json();
+    if(data.error) logMsg('✗ ' + data.error);
+  } catch(e) {
+    logMsg('✗ Server unreachable: ' + e.message);
+  }
+}
+
+async function loadJobs() {
+  try {
+    const res  = await fetch(`${BASE}/api/jobs`);
+    const data = await res.json();
+    renderJobs(data.jobs || []);
+  } catch(e) {
+    const jobsList = document.getElementById('jobs-list');
+    if(jobsList) jobsList.innerHTML =
+      `<div class="text-red-400 text-xs text-center py-3">Cannot reach server: ${escapeHtml(e.message)}</div>`;
+  }
+}
+
+function renderJobs(jobs) {
+  const targets = ['jobs-list','laptop-jobs'].map(id => document.getElementById(id)).filter(Boolean);
+  targets.forEach(el => {
+  if(!jobs || jobs.length === 0) { el.innerHTML = '<div class="text-slate-500 text-center py-4 text-xs">No jobs yet.</div>'; return; }
+
+  const colorMap = {
+    'COMPLETED':  'text-emerald-400',
+    'PROCESSING': 'text-sky-400 pulse',
+    'QUEUED':     'text-yellow-400',
+    'FAILED':     'text-red-400'
+  };
+
+  el.innerHTML = jobs.map(j => {
+    const cls  = colorMap[j.status] || 'text-slate-400';
+    const ts   = j.createdAt ? new Date(j.createdAt * 1000).toTimeString().slice(0,8) : '';
+    const done = j.chunksDone || 0;
+    const tot  = j.chunkCount || 1;
+    const pct  = Math.round(done / tot * 100);
+    const resultHtml = j.finalResult ? `<pre class="text-[10px] text-emerald-300 mt-2 whitespace-pre-wrap">${escapeHtml(JSON.stringify(j.finalResult, null, 2))}</pre>` : '';
+    return `<div class="msg-item">
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-2">
+          <span class="font-mono text-xs text-slate-200 truncate">${escapeHtml(j.jobId)}</span>
+          <span class="text-[10px] ${cls} shrink-0">${j.status}</span>
+        </div>
+        <div class="text-[10px] text-slate-500">${escapeHtml(j.type)} · ${done}/${tot} chunks · ${ts}</div>
+        <div class="w-full bg-slate-800 rounded-full h-1 mt-1.5">
+          <div class="bg-sky-500 h-1 rounded-full transition-all" style="width:${pct}%"></div>
+        </div>
+        ${resultHtml}
+      </div>
+      <button onclick="deleteJob('${escapeJs(j.jobId)}')"
+        class="ml-3 text-[10px] text-red-400 hover:text-red-300 shrink-0 px-2 py-1 border border-red-500/20 rounded hover:bg-red-500/10 transition">
+        Remove
+      </button>
+    </div>`;
+  }).join('');
+  });
+}
+
+async function deleteJob(jobId) {
+  logMsg(`→ Removing job ${jobId}…`);
+  try {
+    await fetch(`${BASE}/api/job/${jobId}`, {method:'DELETE'});
+  } catch(e) {
+    logMsg('✗ Delete failed: ' + e.message);
+  }
+}
+
+// ─── Camera ─────────────────────────────────────────────────────────────────
+async function startCamera() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    alert('Camera access requires the public HTTPS link printed by scripts/start_public_test.ps1.');
+    logMsg('✗ navigator.mediaDevices is undefined (insecure context or HTTP)');
+    return;
+  }
+
+  try {
+    try {
+      // Priority: Phone rear camera
+      camStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' }, width: { ideal: 640 }, height: { ideal: 480 } },
+        audio: false
+      });
+    } catch(errConstraint) {
+      logMsg('⚠ Rear camera constraint failed, falling back to default camera: ' + errConstraint.message);
+      camStream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: false
+      });
+    }
+
+    const video  = document.getElementById('cam-video');
+    const canvas = document.getElementById('cam-canvas');
+    video.srcObject = camStream;
+
+    document.getElementById('cam-placeholder').classList.add('hidden');
+    video.classList.remove('hidden');
+    canvas.classList.remove('hidden');
+    document.getElementById('vision-stats').classList.remove('hidden');
+    document.getElementById('cam-stop-btn').classList.remove('hidden');
+
+    logMsg('✓ Phone camera stream active. Sending frames to laptop CPU detector…');
+    // Send frames to laptop detector at ~5 FPS (200ms interval)
+    camFrameTimer = setInterval(sendFrame, 500);
+
+  } catch(e) {
+    alert('Camera access failed: ' + e.message + '\n\nPlease verify camera permission is granted in Chrome settings.');
+    logMsg('✗ Camera permission / capture error: ' + e.message);
+  }
+}
+
+async function sendFrame() {
+  const video  = document.getElementById('cam-video');
+  const canvas = document.getElementById('cam-canvas');
+  if(!video.videoWidth) return;
+
+  canvas.width  = video.videoWidth;
+  canvas.height = video.videoHeight;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(video, 0, 0);
+
+  const maxW = 640;
+  if(canvas.width > maxW) { const scale = maxW / canvas.width; canvas.width = maxW; canvas.height = Math.round(video.videoHeight * scale); }
+  const ctx2 = canvas.getContext('2d');
+  ctx2.drawImage(video, 0, 0, canvas.width, canvas.height);
+  const b64 = canvas.toDataURL('image/jpeg', 0.4).split(',')[1];
+  const t0  = Date.now();
+
+  try {
+    const res  = await fetch(`${BASE}/api/camera_frame`, {
+      method: 'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({frame: b64, clientId: CLIENT_ID})
+    });
+    const data = await res.json();
+    const ms   = Date.now() - t0;
+
+    document.getElementById('det-count').textContent = data.count || 0;
+    document.getElementById('det-ms').textContent    = ms + ' ms';
+
+    // Draw bounding boxes
+    if(data.detections && data.detections.length > 0) {
+      const W = canvas.width, H = canvas.height;
+      ctx.drawImage(video, 0, 0);
+      data.detections.forEach(d => {
+        const [x, y, w, h] = d.box;
+        ctx.strokeStyle = '#4ade80';
+        ctx.lineWidth   = 2;
+        ctx.strokeRect(x*W, y*H, w*W, h*H);
+        ctx.fillStyle   = '#4ade80';
+        ctx.font        = '12px monospace';
+        ctx.fillText(`${d.label} ${(d.confidence*100).toFixed(0)}%`, x*W + 4, y*H + 14);
+      });
+    }
+  } catch(e) {
+    // Silently continue – server might be briefly busy
+  }
+}
+
+function stopCamera() {
+  if(camStream) { camStream.getTracks().forEach(t => t.stop()); camStream = null; }
+  if(camFrameTimer) { clearInterval(camFrameTimer); camFrameTimer = null; }
+  document.getElementById('cam-video').classList.add('hidden');
+  document.getElementById('cam-canvas').classList.add('hidden');
+  document.getElementById('cam-placeholder').classList.remove('hidden');
+  document.getElementById('cam-stop-btn').classList.add('hidden');
+  document.getElementById('vision-stats').classList.add('hidden');
+  logMsg('Camera stopped.');
+}
+
+// ─── LLM ────────────────────────────────────────────────────────────────────
+async function sendPrompt() {
+  const input = document.getElementById('prompt-input');
+  const prompt = input.value.trim();
+  if(!prompt) return;
+
+  const chat = document.getElementById('chat-box');
+  // User bubble
+  chat.innerHTML += `<div class="text-right"><div class="inline-block bg-sky-600/20 border border-sky-500/30 text-sky-100 px-3 py-2 rounded-xl rounded-tr-sm max-w-xs text-right">${escapeHtml(prompt)}</div></div>`;
+  input.value = '';
+  chat.scrollTop = chat.scrollHeight;
+
+  // Assistant bubble
+  const respId = 'resp-' + Date.now();
+  chat.innerHTML += `<div><div class="text-[10px] text-slate-500 mb-1">qwen2.5:3b (laptop CPU)</div><div id="${respId}" class="bg-slate-900 border border-slate-700 text-slate-200 px-3 py-2 rounded-xl rounded-tl-sm max-w-xs whitespace-pre-wrap"></div></div>`;
+  chat.scrollTop = chat.scrollHeight;
+
+  document.getElementById('llm-btn').disabled = true;
+  document.getElementById('llm-btn').textContent = '…';
+  logMsg(`→ LLM prompt: ${prompt.slice(0,50)}…`);
+
+  try {
+    const res = await fetch(`${BASE}/api/llm`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({prompt})
+    });
+
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.error || `HTTP ${res.status}`);
+    document.getElementById(respId).textContent = result.response || '';
+    chat.scrollTop = chat.scrollHeight;
+    logMsg('✓ LLM response complete');
+  } catch(e) {
+    document.getElementById(respId).textContent = '✗ Error: ' + e.message;
+    logMsg('✗ LLM stream error: ' + e.message);
+  }
+
+  document.getElementById('llm-btn').disabled = false;
+  document.getElementById('llm-btn').textContent = 'Send';
+}
+
+// ─── Init ────────────────────────────────────────────────────────────────────
+if(VIEW === 'laptop') {
+  document.body.classList.add('laptop-view');
+  document.getElementById('laptop-dashboard').classList.remove('hidden');
+  document.getElementById('laptop-ws-state').textContent = 'Connecting…';
+} else {
+  document.getElementById('laptop-dashboard').classList.add('hidden');
+}
+connectWS();
+window.updateLaptopStatus = function() { loadDevices(); };
+</script>
+</body>
+</html>

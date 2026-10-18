@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Local configuration and hub state
+.env
+.env.*
+!.env.example
+server/.state/
+agent/device.json
+
+# Credentials and local TLS material
+agent/certs/*.private.key
+agent/certs/device.private.key
+server/key.pem
+server/cert.pem
+
+# Runtime output and generated builds
+*.log
+mobile-android/.gradle/
+mobile-android/**/build/
+dist/
+build/
