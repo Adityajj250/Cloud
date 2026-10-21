@@ -9,6 +9,7 @@ import re
 import secrets
 import shutil
 import stat
+import subprocess
 import time
 from pathlib import Path
 from typing import Any
@@ -29,6 +30,8 @@ class FilesService:
 
     def __init__(self) -> None:
         app_data = Path(os.getenv("LOCALAPPDATA") or Path.home()) / "RIFT"
+        self.video_cache = app_data / "VideoCache"
+        self.video_cache.mkdir(parents=True, exist_ok=True)
         configured_root = os.getenv("RIFT_FILES_ROOT")
         default_root = str(Path.home() / "RIFT Shared")
         shared_root = os.path.expandvars(os.path.expanduser(configured_root)) if configured_root else default_root
@@ -49,6 +52,8 @@ class FilesService:
             return self.shared_root
         if scope == "inbox":
             return self.inbox_root
+        if scope == "cache":
+            return self.video_cache
         raise ValueError("Unknown files folder")
 
     @staticmethod
@@ -152,6 +157,44 @@ class FilesService:
         with path.open("rb") as handle:
             handle.seek(offset)
             return handle.read(length)
+
+    def transcode_video(self, file_id: str) -> dict[str, Any]:
+        """Create/reuse an H.264/AAC MP4 preview for browsers with limited codecs."""
+        if file_id not in self._paths:
+            raise ValueError("File link expired; refresh the folder")
+        scope, relative = self._paths[file_id]
+        if scope == "cache" or not relative:
+            raise ValueError("Only an original shared video can be converted")
+        source = self._resolve(scope, relative)
+        if not source.is_file():
+            raise ValueError("That item is not a file")
+        fingerprint = f"{source.resolve()}|{source.stat().st_size}|{source.stat().st_mtime_ns}"
+        cache_key = hashlib.sha256(fingerprint.encode("utf-8")).hexdigest()
+        output = self.video_cache / f"{cache_key}.mp4"
+        if not output.is_file() or output.stat().st_size == 0:
+            executable = shutil.which("ffmpeg")
+            if not executable:
+                raise RuntimeError("FFmpeg is not installed on this computer. Install FFmpeg and restart the RIFT agent.")
+            temp_output = self.video_cache / f"{cache_key}.partial.mp4"
+            temp_output.unlink(missing_ok=True)
+            command = [executable, "-hide_banner", "-loglevel", "error", "-y", "-i", str(source),
+                       "-map", "0:v:0", "-map", "0:a?", "-sn", "-dn", "-vf",
+                       "scale=w=min(1280\\,iw):h=-2", "-c:v", "libx264", "-preset", "veryfast",
+                       "-crf", "23", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "128k",
+                       "-movflags", "+faststart", "-f", "mp4", str(temp_output)]
+            try:
+                result = subprocess.run(command, capture_output=True, text=True, timeout=1800,
+                    creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0), check=False)
+                if result.returncode != 0 or not temp_output.is_file() or temp_output.stat().st_size == 0:
+                    message = (result.stderr or "FFmpeg could not convert this video.").strip()[-500:]
+                    raise RuntimeError(message)
+                os.replace(temp_output, output)
+            finally:
+                temp_output.unlink(missing_ok=True)
+        preview_id = secrets.token_urlsafe(24)
+        self._paths[preview_id] = ("cache", output.name)
+        return {"fileId": preview_id, "name": f"{source.stem}-phone.mp4",
+                "size": output.stat().st_size, "mime": "video/mp4"}
 
     def start_upload(self, upload_id: str, name: str, size: int) -> dict[str, Any]:
         if not re.fullmatch(r"[A-Za-z0-9_-]{12,80}", upload_id):

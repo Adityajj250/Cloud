@@ -383,6 +383,8 @@ class RiftAgent:
                 payload = await asyncio.to_thread(service.read_file, str(data.get("fileId", "")),
                     int(data.get("offset", 0)), int(data.get("length", 0)))
                 result = {"data": base64.b64encode(payload).decode("ascii"), "length": len(payload)}
+            elif op == "transcode":
+                result = await asyncio.to_thread(service.transcode_video, str(data.get("fileId", "")))
             elif op == "upload_start":
                 result = await asyncio.to_thread(service.start_upload, str(data.get("uploadId", "")),
                     str(data.get("name", "upload")), int(data.get("size", -1)))

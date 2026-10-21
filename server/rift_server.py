@@ -126,6 +126,7 @@ device_registry = DeviceRegistry()
 pending_pings: dict[str, dict[str, Any]] = {}
 pending_pings_lock = threading.Lock()
 pending_file_ops: dict[str, asyncio.Future] = {}
+video_preview_jobs: dict[str, tuple[str, str, asyncio.Task, float]] = {}
 file_access_tokens: dict[tuple[str, str], str] = {}
 pending_llm_jobs: dict[str, str] = {}
 APP_LOOP = None
@@ -289,6 +290,52 @@ async def handle_files_link(request):
     return web.json_response({"url": f"/api/files/{quote(device_id, safe='')}/content/{quote(file_id, safe='')}?sig={signature}",
         "name": stat.get("name", "file"), "size": int(stat.get("size", 0)),
         "mime": stat.get("mime", "application/octet-stream"), "expiresIn": 600, "mode": mode})
+
+
+async def handle_files_video_preview(request):
+    device_id = request.match_info["deviceId"]
+    file_id = request.match_info["fileId"][:100]
+    device, client_id = require_files_access(request, device_id)
+    now = time.time()
+    for old_id, (_, _, task, created) in list(video_preview_jobs.items()):
+        if now - created > 1800:
+            if not task.done():
+                task.cancel()
+            video_preview_jobs.pop(old_id, None)
+    async def convert():
+        try:
+            result = await request_agent_file_op(device.device_id, {
+                "type": "files_transcode_request", "fileId": file_id
+            }, timeout=1800)
+            preview_id = str(result.get("fileId", ""))
+            if not preview_id:
+                return {"status": "failed", "error": "The computer did not return a converted video."}
+            signature = make_file_signature(device_id, client_id, preview_id, "inline", result)
+            return {"status": "ready", "url": f"/api/files/{quote(device_id, safe='')}/content/{quote(preview_id, safe='')}?sig={signature}",
+                "name": result.get("name", "video-phone.mp4"), "size": int(result.get("size", 0)),
+                "mime": "video/mp4", "expiresIn": 600}
+        except web.HTTPException as error:
+            return {"status": "failed", "error": error.text or "Video conversion failed."}
+        except Exception:
+            log.exception("[FILES] Video preview conversion failed for %s", device_id)
+            return {"status": "failed", "error": "Video conversion failed. Check the computer agent log."}
+
+    job_id = secrets.token_urlsafe(18)
+    task = asyncio.create_task(convert())
+    video_preview_jobs[job_id] = (device_id, client_id, task, now)
+    return web.json_response({"status": "processing", "jobId": job_id}, status=202)
+
+
+async def handle_files_video_preview_status(request):
+    device_id = request.match_info["deviceId"]
+    device, client_id = require_files_access(request, device_id)
+    job = video_preview_jobs.get(request.match_info["jobId"][:100])
+    if not job or job[0] != device.device_id or job[1] != client_id:
+        raise web.HTTPNotFound(text="Video preview job expired or belongs to another controller.")
+    task = job[2]
+    if not task.done():
+        return web.json_response({"status": "processing"})
+    return web.json_response(task.result())
 
 
 async def handle_files_content(request):
@@ -1153,6 +1200,8 @@ async def main():
     app.router.add_get("/api/devices",        handle_list_devices)
     app.router.add_get("/api/files/{deviceId}/entries", handle_files_list)
     app.router.add_post("/api/files/{deviceId}/link/{fileId}", handle_files_link)
+    app.router.add_post("/api/files/{deviceId}/preview/{fileId}", handle_files_video_preview)
+    app.router.add_get("/api/files/{deviceId}/preview-jobs/{jobId}", handle_files_video_preview_status)
     app.router.add_get("/api/files/{deviceId}/content/{fileId}", handle_files_content)
     app.router.add_post("/api/files/{deviceId}/uploads", handle_files_upload_start)
     app.router.add_put("/api/files/{deviceId}/uploads/{uploadId}", handle_files_upload_chunk)

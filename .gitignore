@@ -27,5 +27,6 @@ server/cert.pem
 *.log
 mobile-android/.gradle/
 mobile-android/**/build/
+/apk/*.apk
 dist/
 build/

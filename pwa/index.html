@@ -26,7 +26,6 @@
   #screen-share-toolbar{position:fixed;inset:0;z-index:120;pointer-events:none;}
   #screen-share-toolbar button{position:absolute;top:max(8px,env(safe-area-inset-top));pointer-events:auto;background:rgba(15,23,42,.10);border:1px solid rgba(226,232,240,.22);color:rgba(255,255,255,.78);backdrop-filter:none;box-shadow:none;padding:7px 10px;border-radius:10px;font-size:12px;}
   #screen-fullscreen-exit-btn{left:max(8px,env(safe-area-inset-left));}
-  #screen-keyboard-toggle{right:max(8px,env(safe-area-inset-right));}
   body.screen-share-open #screen-share-toolbar{background:transparent!important;backdrop-filter:none!important;padding:0!important;border:0!important;border-radius:0!important;}
   body.screen-share-open #screen-share-toolbar>div:first-child{display:none!important;}
   body.screen-share-open #screen-share-toolbar>div:last-child{display:contents;}
@@ -34,19 +33,8 @@
   .screen-fullscreen #screen-controls-body{position:fixed;left:8px;right:8px;bottom:calc(env(safe-area-inset-bottom, 0px) + 8px);z-index:5;max-height:55dvh;overflow-y:auto;background:rgba(2,6,23,.92);backdrop-filter:blur(10px);padding:8px;border:1px solid #334155;border-radius:14px;}
   .screen-fullscreen #screen-controls-body{background:rgba(2,6,23,.28);border-color:rgba(148,163,184,.35);}
   .screen-fullscreen #screen-controls-body>div{background:rgba(15,23,42,.34);border-color:rgba(148,163,184,.36);backdrop-filter:blur(2px);}
-  .screen-fullscreen .remote-key{background:rgba(30,41,59,.52);border:1px solid rgba(203,213,225,.4);backdrop-filter:blur(2px);}
-  .screen-fullscreen .remote-key:active{background:rgba(2,132,199,.88);}
   .screen-fullscreen #remote-text{background:rgba(2,6,23,.72);}
   .screen-fullscreen #screen-controls-body{left:0;right:0;bottom:0;max-height:54dvh;padding:5px max(5px,env(safe-area-inset-right)) max(5px,env(safe-area-inset-bottom)) max(5px,env(safe-area-inset-left));border:0;border-radius:0;background:transparent;backdrop-filter:none;}
-  .screen-fullscreen #keyboard-controls{padding:0;background:transparent;border:0;box-shadow:none;}
-  .screen-fullscreen #keyboard-controls>div:first-child,
-  .screen-fullscreen #shortcut-row,
-  .screen-fullscreen #keyboard-controls>div:last-child{display:none!important;}
-  .screen-fullscreen #virtual-keyboard:not(.hidden){display:flex!important;flex-direction:column;gap:5px;width:100%;}
-  .screen-fullscreen #virtual-keyboard.hidden{display:none!important;}
-  .screen-fullscreen .keyboard-row{gap:5px;width:100%;}
-  .screen-fullscreen .remote-key{flex:1;min-width:0;height:clamp(27px,7dvh,42px);padding:2px 4px;border-radius:8px;color:rgba(255,255,255,.82);font-size:clamp(12px,2.3vw,19px);font-weight:600;background:rgba(15,23,42,.07);border-color:rgba(255,255,255,.20);text-shadow:0 1px 3px #000;backdrop-filter:none;touch-action:none;user-select:none;-webkit-user-select:none;}
-  .screen-fullscreen .remote-key:active{background:rgba(2,132,199,.28);}
   @media (orientation:portrait){
     .screen-fullscreen{width:100dvh!important;height:100vw!important;min-height:100vw!important;inset:0 auto auto 100vw!important;transform:rotate(90deg);transform-origin:top left;overflow:hidden!important;}
     body.screen-share-open #screen-share-toolbar{width:100dvh;height:100vw;inset:0 auto auto 100vw;transform:rotate(90deg);transform-origin:top left;}
@@ -54,17 +42,11 @@
     .screen-fullscreen #remote-screen{width:100dvh!important;height:100vw!important;}
     body.screen-share-open #screen-share-toolbar button{top:4px;}
     .screen-fullscreen #screen-controls-body{left:4px;right:4px;bottom:4px;max-height:54vw;}
-    .screen-fullscreen .remote-key{height:clamp(24px,5.5vw,36px);}
   }
-  .keyboard-row{display:flex;gap:4px;justify-content:center;}
 
   #remote-cursor{position:absolute;left:0;top:0;width:0;height:0;pointer-events:none;z-index:3;will-change:transform;display:none;}
-  #remote-cursor .halo{position:absolute;left:-15px;top:-15px;width:30px;height:30px;border-radius:50%;border:2px solid rgba(56,189,248,.95);background:rgba(56,189,248,.20);box-shadow:0 0 10px rgba(56,189,248,.7);animation:cursorPulse 1.4s ease-out infinite;}
   #remote-cursor svg{position:absolute;left:0;top:0;overflow:visible;filter:drop-shadow(0 1px 2px rgba(0,0,0,.8));}
   #remote-cursor.stale{opacity:.35;}
-  #remote-cursor.stale .halo{animation:none;border-color:rgba(248,113,113,.9);background:rgba(248,113,113,.2);}
-  #remote-cursor-badge{position:absolute;left:50%;top:6px;transform:translateX(-50%);z-index:4;pointer-events:none;display:none;font:600 11px ui-monospace,Menlo,monospace;color:#e2e8f0;background:rgba(2,6,23,.62);padding:2px 8px;border-radius:999px;white-space:nowrap;}
-  @keyframes cursorPulse{0%{transform:scale(.6);opacity:1}100%{transform:scale(1.25);opacity:.35}}
 </style>
 </head>
 <body class="pb-20">
@@ -315,27 +297,20 @@
   </div>
   <div id="screen-control-panel" class="hidden bg-slate-950 border border-slate-800 rounded-xl p-2 space-y-2">
     <div class="flex items-center justify-between px-1"><div class="text-[11px] text-slate-300">HD up to 720p · live cursor</div><button id="screen-fullscreen-enter-btn" onclick="toggleScreenFullscreen()" class="bg-slate-800 px-3 py-1.5 rounded-lg text-xs">⛶ Full screen</button></div>
-    <div id="remote-screen-wrap" class="relative w-full bg-black rounded-lg overflow-hidden touch-none select-none"><img id="remote-screen" alt="Live laptop screen" class="block w-full h-auto max-h-[52vh] object-contain mx-auto" draggable="false"/><div id="remote-cursor"><div class="halo"></div><svg width="22" height="30" viewBox="0 0 22 30"><polygon points="1,1 1,22 6.2,17.2 10,26.5 13.4,25 9.6,15.9 16.5,15.9" fill="#fff" stroke="#000" stroke-width="1.6" stroke-linejoin="round"/></svg></div><div id="remote-cursor-badge">Cursor: waiting…</div></div>
+    <div id="remote-screen-wrap" class="relative w-full bg-black rounded-lg overflow-hidden touch-none select-none"><img id="remote-screen" alt="Live laptop screen" class="block w-full h-auto max-h-[52vh] object-contain mx-auto" draggable="false"/><div id="remote-cursor"><svg width="14" height="19" viewBox="0 0 22 30"><polygon points="1,1 1,22 6.2,17.2 10,26.5 13.4,25 9.6,15.9 16.5,15.9" fill="#fff" stroke="#000" stroke-width="1.6" stroke-linejoin="round"/></svg></div></div>
     <div id="screen-controls-body" class="space-y-2">
+    <div id="remote-text-controls" class="bg-slate-900 border border-slate-800 rounded-xl p-2"><input id="remote-text" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Type directly on laptop…" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm" onkeydown="if(event.key==='Enter'){event.preventDefault();sendRemoteKey('enter')}"/><div class="text-[10px] text-slate-500 mt-1">Phone keyboard input is sent immediately to the laptop.</div></div>
     <div id="touchpad-controls" class="bg-slate-900 border border-slate-800 rounded-xl p-2 space-y-2">
       <div class="flex items-center justify-between px-1"><div class="text-xs font-semibold">Touchpad</div><button id="drag-mode-btn" onclick="toggleDragMode()" class="bg-slate-800 px-2.5 py-1 rounded text-[11px]">Drag: off</button></div>
       <div id="remote-touchpad" class="h-28 rounded-lg bg-slate-800/80 border border-slate-700 touch-none select-none flex items-center justify-center text-xs text-slate-400">Swipe to move the laptop pointer · tap to click</div>
       <div class="flex gap-2"><button onclick="touchpadClick('left')" class="flex-1 bg-slate-700 py-2 rounded-lg text-xs">Left click</button><button onclick="touchpadClick('right')" class="flex-1 bg-slate-700 py-2 rounded-lg text-xs">Right click</button></div>
-    </div>
-    <div id="keyboard-controls" class="bg-slate-900 border border-slate-800 rounded-xl p-2 space-y-2">
-      <div class="flex items-center justify-between"><div class="text-xs font-semibold">Virtual keyboard</div><button id="keyboard-toggle" onclick="toggleVirtualKeyboard()" class="bg-slate-800 px-3 py-1 rounded text-[11px]">Show keyboard</button></div>
-      <div id="shortcut-row" class="flex gap-1 overflow-x-auto pb-1">
-        <button onclick="sendRemoteShortcut('ctrl','c')" class="remote-key">Ctrl+C</button><button onclick="sendRemoteShortcut('ctrl','v')" class="remote-key">Ctrl+V</button><button onclick="sendRemoteShortcut('ctrl','a')" class="remote-key">Ctrl+A</button><button onclick="sendRemoteShortcut('ctrl','z')" class="remote-key">Ctrl+Z</button><button onclick="sendRemoteShortcut('alt','tab')" class="remote-key">Alt+Tab</button>
-      </div>
-      <div id="virtual-keyboard" class="hidden space-y-1"></div>
-      <div><input id="remote-text" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Type directly on laptop…" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm" onkeydown="if(event.key==='Enter'){event.preventDefault();sendRemoteKey('enter')}"/><div class="text-[10px] text-slate-500 mt-1">Phone keyboard input is sent immediately to the laptop.</div></div>
     </div>
     </div>
   </div>
 </section>
 
 </main>
-<div id="screen-share-toolbar" class="hidden"><div>HD up to 720p · live cursor</div><div><button id="screen-fullscreen-exit-btn" onclick="toggleScreenFullscreen()">× Exit full screen</button><button id="screen-keyboard-toggle" onclick="toggleKeyboardOverlay()">Keyboard</button></div></div>
+<div id="screen-share-toolbar" class="hidden"><div>HD up to 720p · live cursor</div><div><button id="screen-fullscreen-exit-btn" onclick="toggleScreenFullscreen()">× Exit full screen</button></div></div>
 <script>
 // ─── Server Base URL ────────────────────────────────────────────────────────
 // Dynamically uses whatever host served this page (works for both laptop & phone)
@@ -376,7 +351,6 @@ let padGesture = null;
 let dragMode = false;
 let remoteCursor = {x:0.5,y:0.5,mon:null,seen:0};
 let remoteFrameMon = null;
-let virtualShift = false;
 
 // ─── WebSocket ──────────────────────────────────────────────────────────────
 function connectWS() {
@@ -689,10 +663,8 @@ function selectDevice(deviceId) {
   // previous computer cannot remain visible while the new stream starts.
   const screen = document.getElementById('remote-screen');
   const cursor = document.getElementById('remote-cursor');
-  const badge = document.getElementById('remote-cursor-badge');
   if(screen) screen.removeAttribute('src');
   if(cursor) { cursor.style.display = 'none'; cursor.style.transform = ''; cursor.classList.remove('stale'); }
-  if(badge) badge.textContent = 'Cursor: waiting…';
   controlActive = false;
   controlDeviceId = '';
   const panel = document.getElementById('screen-control-panel');
@@ -929,7 +901,41 @@ async function openFileAction(fileId,name,mime,mode,size=0) {
       video.onloadedmetadata=()=>setFilesStatus('Video is ready; the rest loads as you watch or seek.');
       video.onwaiting=()=>setFilesStatus('Loading the next video segment…');
       video.onplaying=()=>setFilesStatus('Streaming video; later sections load on demand.');
-      video.src=url; video.load(); video.onerror=()=>{const error=document.getElementById('files-viewer-error');error.textContent='This video codec/container is not supported by this browser. FFmpeg transcoding is not configured yet.';error.classList.remove('hidden');};
+      let converting=false;
+      video.onerror=async()=>{
+        if(converting) return;
+        converting=true;
+        setFilesStatus('This browser cannot decode the original. Creating a phone-compatible MP4 on the computer…');
+        try {
+          const converted=await fetch(`${BASE}/api/files/${encodeURIComponent(selectedDeviceId)}/preview/${encodeURIComponent(fileId)}`,{method:'POST',headers:fileHeaders()});
+          const convertedBody=await converted.text();
+          let convertedData={};
+          try { convertedData=JSON.parse(convertedBody); } catch { convertedData={error:convertedBody}; }
+          if(!converted.ok) throw new Error(convertedData.message||convertedData.error||`Video conversion failed (${converted.status})`);
+          let preview=convertedData;
+          while(preview.status==='processing') {
+            await new Promise(resolve=>setTimeout(resolve,1200));
+            const status=await fetch(`${BASE}/api/files/${encodeURIComponent(selectedDeviceId)}/preview-jobs/${encodeURIComponent(convertedData.jobId)}`,{headers:fileHeaders(),cache:'no-store'});
+            preview=await status.json().catch(()=>({}));
+            if(!status.ok) throw new Error(preview.message||preview.error||`Video conversion status failed (${status.status})`);
+            setFilesStatus('Converting on the computer. This can take a little while for a large video…');
+          }
+          if(preview.status!=='ready'||!preview.url) throw new Error(preview.error||'Video conversion failed.');
+          document.getElementById('files-viewer-title').textContent=preview.name||`${name} (phone preview)`;
+          video.onerror=()=>{const error=document.getElementById('files-viewer-error');error.textContent='The converted MP4 could not be played by this browser.';error.classList.remove('hidden');};
+          video.src=new URL(preview.url,BASE).href; video.load();
+          setFilesStatus('Converted preview ready; playback will stream as you watch.');
+        } catch(error) {
+          const rawMessage=error.message||'Video conversion failed.';
+          const message=/unsupported files operation/i.test(rawMessage)
+            ? 'The selected computer agent is out of date. Stop it and restart it from the updated R.I.F.T. project, then try the video again.'
+            : rawMessage;
+          const viewerError=document.getElementById('files-viewer-error');
+          viewerError.textContent=message; viewerError.classList.remove('hidden');
+          setFilesStatus(message,true);
+        }
+      };
+      video.src=url; video.load();
       viewer.scrollIntoView({behavior:'smooth',block:'start'}); return;
     }
     if(mime.startsWith('image/')) {
@@ -1083,19 +1089,15 @@ function scheduleCursorRender() {
   requestAnimationFrame(() => { cursorRenderQueued = false; renderRemoteCursor(); });
 }
 function renderRemoteCursor() {
-  const el = document.getElementById('remote-cursor'), badge = document.getElementById('remote-cursor-badge');
+  const el = document.getElementById('remote-cursor');
   const screen = document.getElementById('remote-screen');
-  if(!el || !badge || !screen) return;
-  if(!controlActive || !screen.getAttribute('src')) { el.style.display = 'none'; badge.style.display = 'none'; return; }
+  if(!el || !screen) return;
+  if(!controlActive || !screen.getAttribute('src')) { el.style.display = 'none'; return; }
   const box = remoteContentBox();
   const stale = performance.now() - remoteCursor.seen > 1500;
-  el.style.display = 'block'; badge.style.display = 'block';
+  el.style.display = 'block';
   el.classList.toggle('stale', stale);
   el.style.transform = `translate(${box.left + remoteCursor.x * box.width}px, ${box.top + remoteCursor.y * box.height}px)`;
-  const mon = remoteCursor.mon;
-  if(stale) badge.textContent = 'Cursor signal lost…';
-  else if(mon) { const w = mon[2] - mon[0], h = mon[3] - mon[1]; badge.textContent = `Cursor ${Math.round(remoteCursor.x * (w - 1))}, ${Math.round(remoteCursor.y * (h - 1))} · ${w}×${h}`; }
-  else badge.textContent = `Cursor ${(remoteCursor.x * 100).toFixed(1)}%, ${(remoteCursor.y * 100).toFixed(1)}%`;
 }
 {
   const img = document.getElementById('remote-screen'), wrap = document.getElementById('remote-screen-wrap');
@@ -1141,11 +1143,7 @@ function toggleScreenFullscreen() {
     document.getElementById('screen-controls-body').classList.remove('hidden');
     document.getElementById('screen-share-toolbar').classList.remove('hidden');
     document.getElementById('touchpad-controls').classList.add('hidden');
-    document.getElementById('keyboard-controls').classList.remove('hidden');
-    document.getElementById('virtual-keyboard').classList.remove('hidden');
-    document.getElementById('keyboard-toggle').textContent='Hide keyboard';
-    document.getElementById('screen-keyboard-toggle').classList.remove('hidden');
-    document.getElementById('screen-keyboard-toggle').textContent='Hide keyboard';
+    document.getElementById('remote-text-controls').classList.remove('hidden');
     document.getElementById('screen-fullscreen-exit-btn').textContent = '× Exit full screen';
     let fullscreenRequest=Promise.resolve();
     if(document.documentElement.requestFullscreen) fullscreenRequest=document.documentElement.requestFullscreen();
@@ -1163,9 +1161,7 @@ function exitScreenFullscreen() {
   document.getElementById('screen-controls-body')?.classList.remove('hidden');
   document.getElementById('screen-share-toolbar')?.classList.add('hidden');
   document.getElementById('touchpad-controls')?.classList.remove('hidden');
-  document.getElementById('keyboard-controls')?.classList.remove('hidden');
-  document.getElementById('screen-keyboard-toggle')?.classList.add('hidden');
-  document.getElementById('screen-keyboard-toggle').textContent='Keyboard';
+  document.getElementById('remote-text-controls')?.classList.remove('hidden');
   screen.orientation?.unlock?.();
   if(document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(()=>{});
 }
@@ -1176,25 +1172,11 @@ document.addEventListener('fullscreenchange',()=>{
     document.getElementById('screen-controls-body').classList.remove('hidden');
     document.getElementById('screen-share-toolbar').classList.add('hidden');
     document.getElementById('touchpad-controls').classList.remove('hidden');
-    document.getElementById('keyboard-controls').classList.remove('hidden');
-    document.getElementById('screen-keyboard-toggle').classList.add('hidden');
-    document.getElementById('screen-keyboard-toggle').textContent='Keyboard';
+    document.getElementById('remote-text-controls').classList.remove('hidden');
     document.getElementById('screen-fullscreen-exit-btn').textContent='× Exit full screen';
     screen.orientation?.unlock?.();
   }
 });
-function toggleKeyboardOverlay() {
-  const controls=document.getElementById('screen-controls-body');
-  const keyboardPanel=document.getElementById('keyboard-controls');
-  const board=document.getElementById('virtual-keyboard');
-  const show=controls.classList.contains('hidden')||keyboardPanel.classList.contains('hidden')||board.classList.contains('hidden');
-  controls.classList.toggle('hidden',!show);
-  document.getElementById('touchpad-controls').classList.add('hidden');
-  keyboardPanel.classList.toggle('hidden',!show);
-  board.classList.toggle('hidden',!show);
-  document.getElementById('keyboard-toggle').textContent=show?'Hide keyboard':'Show keyboard';
-  document.getElementById('screen-keyboard-toggle').textContent=show?'Hide keyboard':'Keyboard';
-}
 function pointerPositionEvent() { sendControlInput({type:'move', x:virtualPointer.x, y:virtualPointer.y}); }
 function touchpadClick(button='left') { sendControlInput({type:'click', button, x:virtualPointer.x, y:virtualPointer.y}); }
 function toggleDragMode() {
@@ -1229,12 +1211,6 @@ function endTouchpadGesture() {
 }
 touchpad.addEventListener('pointerup', event => { event.preventDefault(); endTouchpadGesture(); });
 touchpad.addEventListener('pointercancel', endTouchpadGesture);
-function toggleVirtualKeyboard() {
-  const board=document.getElementById('virtual-keyboard');
-  const show=board.classList.contains('hidden');
-  board.classList.toggle('hidden',!show);
-  document.getElementById('keyboard-toggle').textContent=show?'Hide keyboard':'Show keyboard';
-}
 let remoteTextComposing=false;
 let ignoreCompositionCommit=false;
 const remoteTextInput=document.getElementById('remote-text');
@@ -1258,59 +1234,6 @@ remoteTextInput.addEventListener('beforeinput',event=>{
     if(pasted) sendControlInput({type:'text',text:pasted.slice(0,160)});
   }
 });
-function makeKeyboardRow(labels, wideKeys=[]) {
-  const row=document.createElement('div'); row.className='keyboard-row';
-  labels.forEach(label=>{
-    const button=document.createElement('button'); button.type='button'; button.className='remote-key';
-    button.textContent=label; if(wideKeys.includes(label)) button.style.flex='1.8';
-    let heldKey=null;
-    button.addEventListener('pointerdown',event=>{
-      event.preventDefault();
-      try { button.setPointerCapture(event.pointerId); } catch {}
-      if(label==='Enter') heldKey='enter';
-      else if(label==='Tab') heldKey='tab';
-      else if(label==='Esc') heldKey='esc';
-      else if(label==='⌫') heldKey='backspace';
-      else if(label==='Space') heldKey='space';
-      else if(label==='←') heldKey='left';
-      else if(label==='→') heldKey='right';
-      else if(label==='↑') heldKey='up';
-      else if(label==='↓') heldKey='down';
-      else if(label==='Shift') {
-        virtualShift=!virtualShift;
-        button.classList.toggle('bg-sky-700',virtualShift);
-        if(virtualShift) sendRemoteKeyDown('shift'); else sendRemoteKeyUp('shift');
-        return;
-      }
-      else heldKey=label.toLowerCase();
-      if(heldKey) sendRemoteKeyDown(heldKey);
-    });
-    const releaseHeldKey=()=>{ if(heldKey){sendRemoteKeyUp(heldKey);heldKey=null;} };
-    button.addEventListener('pointerup',releaseHeldKey);
-    button.addEventListener('pointercancel',releaseHeldKey);
-    button.addEventListener('lostpointercapture',releaseHeldKey);
-    row.appendChild(button);
-  });
-  return row;
-}
-function releaseVirtualKeys() {
-  document.querySelectorAll('#virtual-keyboard .remote-key').forEach(button=>button.dispatchEvent(new Event('pointercancel')));
-  if(virtualShift) {
-    sendRemoteKeyUp('shift');
-    virtualShift=false;
-    document.querySelectorAll('#virtual-keyboard .remote-key').forEach(button=>{if(button.textContent==='Shift')button.classList.remove('bg-sky-700');});
-  }
-}
-window.addEventListener('blur',releaseVirtualKeys);
-document.addEventListener('visibilitychange',()=>{if(document.hidden)releaseVirtualKeys();});
-const keyboard=document.getElementById('virtual-keyboard');
-keyboard.append(makeKeyboardRow('1234567890'.split('')));
-keyboard.append(makeKeyboardRow('qwertyuiop'.split('')));
-keyboard.append(makeKeyboardRow('asdfghjkl'.split('')));
-keyboard.append(makeKeyboardRow(['Shift',...'zxcvbnm','⌫'],['Shift','⌫']));
-keyboard.append(makeKeyboardRow(['←','↓','↑','→']));
-keyboard.append(makeKeyboardRow(['Esc','Tab','Space','Enter'],['Space','Enter']));
-
 // ─── Ping ───────────────────────────────────────────────────────────────────
 async function doPing(deviceId=selectedDeviceId, btn=null) {
   if(!deviceId) { logMsg('No computer selected to ping.'); return; }

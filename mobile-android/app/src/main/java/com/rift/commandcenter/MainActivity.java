@@ -31,6 +31,7 @@ import androidx.appcompat.app.AppCompatActivity;
 public class MainActivity extends AppCompatActivity {
     private static final String PREFS = "rift_mobile";
     private static final String SERVER_URL_KEY = "server_url";
+    private static final String DEFAULT_SERVER_URL = "https://d2nv2vasdntzxl.cloudfront.net";
     private static final int CAMERA_PERMISSION_REQUEST = 41;
     private static final int FILE_CHOOSER_REQUEST = 42;
 
@@ -45,15 +46,12 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        serverUrl = getSharedPreferences(PREFS, MODE_PRIVATE).getString(SERVER_URL_KEY, "");
+        serverUrl = getSharedPreferences(PREFS, MODE_PRIVATE).getString(SERVER_URL_KEY, DEFAULT_SERVER_URL);
         createLayout();
         configureWebView();
 
-        if (serverUrl.isEmpty()) {
-            showServerUrlDialog("");
-        } else {
-            loadCommandCenter();
-        }
+        if (serverUrl.isEmpty()) showServerUrlDialog(DEFAULT_SERVER_URL);
+        else loadCommandCenter();
     }
 
     private void createLayout() {
@@ -63,7 +61,7 @@ public class MainActivity extends AppCompatActivity {
         LinearLayout toolbar = new LinearLayout(this);
         toolbar.setOrientation(LinearLayout.HORIZONTAL);
         Button changeUrl = new Button(this);
-        changeUrl.setText("Set tunnel URL");
+        changeUrl.setText("Change server URL");
         changeUrl.setOnClickListener(v -> showServerUrlDialog(serverUrl));
         Button reload = new Button(this);
         reload.setText("Reload");
@@ -198,14 +196,14 @@ public class MainActivity extends AppCompatActivity {
         EditText input = new EditText(this);
         input.setSingleLine(true);
         input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI);
-        input.setHint("https://your-name.trycloudflare.com");
+        input.setHint(DEFAULT_SERVER_URL);
         input.setText(initialValue);
         input.setSelection(input.getText().length());
         int pad = (int) (20 * getResources().getDisplayMetrics().density);
 
         new AlertDialog.Builder(this)
                 .setTitle("Connect to R.I.F.T.")
-                .setMessage("Paste the current HTTPS URL printed by start_public_test.ps1. The URL changes when the tunnel restarts.")
+                .setMessage("The hosted R.I.F.T. server URL is filled in by default. Change it only if you are connecting to a local development tunnel.")
                 .setView(input, pad, 0, pad, 0)
                 .setCancelable(!serverUrl.isEmpty())
                 .setPositiveButton("Connect", (dialog, which) -> saveAndLoad(input.getText().toString()))
